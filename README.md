@@ -76,4 +76,4 @@ src
 
 **Marden Andrade**
 
-Trabalho de Conclusão de Curso — Bacharelado em Sistemas de Informação.
+Trabalho de Conclusão de Curso — Bacharelado em Ciências da Computação.
