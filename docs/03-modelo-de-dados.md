@@ -70,7 +70,7 @@ Classe base de toda autenticação, mapeada com `@Inheritance(strategy = Inherit
 | `id` | `Long` | PK, auto incremento (`IDENTITY`) |
 | `nome` | `String` | obrigatório |
 | `email` | `String` | obrigatório, único, formato de e-mail válido |
-| `senha` | `String` | obrigatório, armazenado com hash **BCrypt** |
+| `senha` | `String` | obrigatório, armazenado com hash **BCrypt**; `@JsonProperty(access = WRITE_ONLY)` — aceito em requests, nunca devolvido em nenhuma resposta JSON |
 | `tipoUsuario` | `TipoUsuario` (enum) | obrigatório — `ADMIN`, `PACIENTE` ou `PROFISSIONAL` |
 
 ### `Paciente` (tabela `pacientes`, estende `Usuario`)
@@ -81,11 +81,13 @@ Classe base de toda autenticação, mapeada com `@Inheritance(strategy = Inherit
 | `telefone` | `String` | opcional |
 | `endereco` | `String` | opcional |
 | `dataNascimento` | `LocalDate` | obrigatório |
-| `anamneses` | `List<Anamnese>` | 1:N, cascade `ALL` + `orphanRemoval` |
-| `agendamentos` | `List<Agendamento>` | 1:N, cascade `ALL` + `orphanRemoval` |
-| `consultas` | `List<Consulta>` | 1:N, cascade `ALL` + `orphanRemoval` |
+| `anamneses` | `List<Anamnese>` | 1:N, cascade `ALL` + `orphanRemoval`, `@JsonIgnore` |
+| `agendamentos` | `List<Agendamento>` | 1:N, cascade `ALL` + `orphanRemoval`, `@JsonIgnore` |
+| `consultas` | `List<Consulta>` | 1:N, cascade `ALL` + `orphanRemoval`, `@JsonIgnore` |
 
 `tipoUsuario` é definido automaticamente como `PACIENTE` no `@PrePersist` se não informado.
+
+> **`@JsonIgnore` nas três listas:** `Anamnese`/`Agendamento`/`Consulta` já trazem o `Paciente` embutido (`paciente: {...}`). Sem `@JsonIgnore` do lado "many", serializar qualquer uma dessas entidades entra em ciclo infinito (`Anamnese.paciente.anamneses[0]` é a própria `Anamnese`) e o Jackson estoura `StackOverflowError` no meio da resposta — o cliente recebe um JSON truncado e inválido. O cascade/orphanRemoval do JPA continua funcionando normalmente; a anotação só afeta serialização.
 
 ### `Profissional` (tabela `profissionais`, estende `Usuario`)
 
@@ -94,10 +96,10 @@ Classe base de toda autenticação, mapeada com `@Inheritance(strategy = Inherit
 | `especialidade` | `String` | obrigatório |
 | `crm` | `String` | opcional, único |
 | `cargo` | `String` | opcional (ex.: médico, enfermeira, secretária) |
-| `agendamentos` | `List<Agendamento>` | 1:N, cascade `ALL` + `orphanRemoval` |
-| `consultas` | `List<Consulta>` | 1:N, cascade `ALL` + `orphanRemoval` |
+| `agendamentos` | `List<Agendamento>` | 1:N, cascade `ALL` + `orphanRemoval`, `@JsonIgnore` |
+| `consultas` | `List<Consulta>` | 1:N, cascade `ALL` + `orphanRemoval`, `@JsonIgnore` |
 
-`tipoUsuario` é definido automaticamente como `PROFISSIONAL` no `@PrePersist` se não informado.
+`tipoUsuario` é definido automaticamente como `PROFISSIONAL` no `@PrePersist` se não informado. Mesmo motivo do `@JsonIgnore` explicado em `Paciente` acima.
 
 > O campo `cargo` (texto livre) é o que hoje diferencia, na prática, enfermeira / secretária / médico dentro do papel `PROFISSIONAL` — não existe um enum de cargo dedicado.
 

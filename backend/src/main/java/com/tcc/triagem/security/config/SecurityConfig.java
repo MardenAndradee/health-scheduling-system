@@ -19,6 +19,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -41,9 +46,11 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/pacientes").permitAll() // auto-cadastro público de paciente
 
                         .requestMatchers(HttpMethod.POST,   "/profissionais/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT,    "/profissionais/**").hasRole("ADMIN")
@@ -65,6 +72,26 @@ public class SecurityConfig {
     }
 
     // ─── Beans de infraestrutura ───────────────────────────────────────────────
+
+    // ─── CORS ──────────────────────────────────────────────────────────────────
+    // Necessário para o frontend (origem separada, ex.: http://localhost:3000)
+    // conseguir chamar esta API a partir do navegador — sem isso, o navegador
+    // bloqueia o preflight antes mesmo do Spring Security processar a requisição.
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:3000",
+                "http://127.0.0.1:3000"
+        ));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
 
     @Bean
     public AuthenticationProvider authenticationProvider() {

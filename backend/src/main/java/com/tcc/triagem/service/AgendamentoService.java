@@ -4,10 +4,12 @@ import com.tcc.triagem.dto.AgendamentoDTO;
 import com.tcc.triagem.exception.RecursoNaoEncontradoException;
 import com.tcc.triagem.exception.RegraDeNegocioException;
 import com.tcc.triagem.model.Agendamento;
+import com.tcc.triagem.model.Anamnese;
 import com.tcc.triagem.model.Paciente;
 import com.tcc.triagem.model.Profissional;
 import com.tcc.triagem.model.enums.StatusAgendamento;
 import com.tcc.triagem.repository.AgendamentoRepository;
+import com.tcc.triagem.repository.AnamneseRepository;
 import com.tcc.triagem.repository.PacienteRepository;
 import com.tcc.triagem.repository.ProfissionalRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ public class AgendamentoService {
     private final AgendamentoRepository agendamentoRepository;
     private final PacienteRepository pacienteRepository;
     private final ProfissionalRepository profissionalRepository;
+    private final AnamneseRepository anamneseRepository;
 
     @Transactional
     public Agendamento criar(AgendamentoDTO dto) {
@@ -37,12 +40,19 @@ public class AgendamentoService {
             throw new RegraDeNegocioException("A data da consulta não pode ser no passado.");
         }
 
+        Anamnese anamnese = null;
+        if (dto.getAnamneseId() != null) {
+            anamnese = anamneseRepository.findById(dto.getAnamneseId())
+                    .orElseThrow(() -> new RecursoNaoEncontradoException("Anamnese", dto.getAnamneseId()));
+        }
+
         Agendamento agendamento = Agendamento.builder()
                 .dataConsulta(dto.getDataConsulta())
                 .status(dto.getStatus() != null ? dto.getStatus() : StatusAgendamento.AGENDADO)
                 .observacoes(dto.getObservacoes())
                 .paciente(paciente)
                 .profissional(profissional)
+                .anamnese(anamnese)
                 .build();
 
         return agendamentoRepository.save(agendamento);

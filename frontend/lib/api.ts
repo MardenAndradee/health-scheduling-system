@@ -2,26 +2,48 @@ import {
   Agendamento, AgendamentoForm,
   Anamnese, AnamneseForm,
   Consulta, ConsultaForm,
+  LoginRequest, LoginResponse,
   NivelUrgencia,
   Paciente, PacienteForm,
   Profissional, ProfissionalForm,
   StatusAgendamento,
   Usuario,
 } from '@/types'
+import { limparSessao, obterToken } from '@/lib/auth'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = obterToken()
   const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options?.headers,
+    },
     ...options,
   })
+
+  if (res.status === 401) {
+    limparSessao()
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.location.href = '/login'
+    }
+    throw new Error('Sessão expirada. Faça login novamente.')
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ mensagem: 'Erro desconhecido' }))
     throw new Error(err.mensagem || `Erro ${res.status}`)
   }
   if (res.status === 204) return undefined as T
   return res.json()
+}
+
+// ─── Autenticação ─────────────────────────────────────────────────────────────
+export const authApi = {
+  login: (data: LoginRequest) =>
+    request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
 }
 
 // ─── Usuários ─────────────────────────────────────────────────────────────────

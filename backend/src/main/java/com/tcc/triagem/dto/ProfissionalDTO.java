@@ -20,7 +20,9 @@ public class ProfissionalDTO {
     @NotBlank(message = "Email é obrigatório")
     private String email;
 
-    @NotBlank(message = "Senha é obrigatória")
+    // Sem @NotBlank de propósito: obrigatória só na criação (checado em
+    // ProfissionalService.criar). Em branco na atualização significa "manter
+    // a senha atual" — ver ProfissionalService.atualizar.
     private String senha;
 
     @NotBlank(message = "Especialidade é obrigatória")

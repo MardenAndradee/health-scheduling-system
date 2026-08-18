@@ -24,6 +24,9 @@ public class PacienteService {
 
     @Transactional
     public Paciente criar(PacienteDTO dto) {
+        if (dto.getSenha() == null || dto.getSenha().isBlank()) {
+            throw new RegraDeNegocioException("Senha é obrigatória.");
+        }
         if (pacienteRepository.existsByCpf(dto.getCpf())) {
             throw new RegraDeNegocioException("Já existe um paciente com o CPF: " + dto.getCpf());
         }
@@ -85,7 +88,9 @@ public class PacienteService {
 
         paciente.setNome(dto.getNome());
         paciente.setEmail(dto.getEmail());
-        paciente.setSenha(passwordEncoder.encode(dto.getSenha()));
+        if (dto.getSenha() != null && !dto.getSenha().isBlank()) {
+            paciente.setSenha(passwordEncoder.encode(dto.getSenha()));
+        }
         paciente.setCpf(dto.getCpf());
         paciente.setTelefone(dto.getTelefone());
         paciente.setEndereco(dto.getEndereco());

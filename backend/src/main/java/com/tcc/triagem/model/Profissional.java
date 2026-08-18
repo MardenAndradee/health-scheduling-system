@@ -1,5 +1,6 @@
 package com.tcc.triagem.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.tcc.triagem.model.enums.TipoUsuario;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
@@ -29,12 +30,15 @@ public class Profissional extends Usuario {
     @Column(length = 100)
     private String cargo;
 
+    // @JsonIgnore evita recursão infinita na serialização — ver Paciente.java.
     @OneToMany(mappedBy = "profissional", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @JsonIgnore
     private List<Agendamento> agendamentos = new ArrayList<>();
 
     @OneToMany(mappedBy = "profissional", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @JsonIgnore
     private List<Consulta> consultas = new ArrayList<>();
 
     @PrePersist

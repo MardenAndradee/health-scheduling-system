@@ -1,5 +1,6 @@
 package com.tcc.triagem.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.tcc.triagem.model.enums.NivelUrgencia;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
@@ -15,6 +16,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Anamnese {
 
     @Id

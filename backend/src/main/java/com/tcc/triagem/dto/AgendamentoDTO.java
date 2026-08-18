@@ -27,4 +27,9 @@ public class AgendamentoDTO {
 
     @NotNull(message = "ID do profissional é obrigatório")
     private Long profissionalId;
+
+    // Opcional: vincula o agendamento à anamnese que o originou, para que a
+    // fila de triagem (AnamneseRepository.findAllOrdenadosPorUrgencia) deixe
+    // de listar o paciente depois de agendado.
+    private Long anamneseId;
 }

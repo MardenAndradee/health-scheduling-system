@@ -13,23 +13,65 @@ export function formatDateTime(iso: string) {
   })
 }
 
-export function formatCpf(cpf: string) {
-  return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+export function apenasDigitos(value: string): string {
+  return value.replace(/\D/g, '')
 }
 
+/** Formata progressivamente enquanto o usuário digita (000.000.000-00) e também serve para exibir um CPF já completo. */
+export function maskCpf(value: string): string {
+  return apenasDigitos(value)
+    .slice(0, 11)
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+}
+
+/** (DD) 00000-0000 para celular ou (DD) 0000-0000 para fixo, conforme a quantidade de dígitos digitados. */
+export function maskTelefone(value: string): string {
+  const digitos = apenasDigitos(value).slice(0, 11)
+  if (digitos.length > 10) {
+    return digitos
+      .replace(/(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{5})(\d)/, '$1-$2')
+  }
+  return digitos
+    .replace(/(\d{2})(\d)/, '($1) $2')
+    .replace(/(\d{4})(\d)/, '$1-$2')
+}
+
+export function mensagemErro(erro: unknown): string {
+  return erro instanceof Error ? erro.message : 'Erro desconhecido'
+}
+
+// Paleta de classificação de risco — uso exclusivo para NivelUrgencia. Nunca
+// reaproveitar nenhuma destas cinco cores em outro contexto da UI (erro de
+// formulário, status de agendamento etc.), para não confundir gravidade
+// clínica com feedback de sistema. Ver docs/08-design.md.
 export const urgenciaConfig: Record<NivelUrgencia, { label: string; color: string; bg: string }> = {
-  VERMELHO: { label: 'Emergência',    color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
-  LARANJA:  { label: 'Muito urgente', color: '#f97316', bg: 'rgba(249,115,22,0.12)' },
-  AMARELO:  { label: 'Urgente',       color: '#eab308', bg: 'rgba(234,179,8,0.12)' },
-  AZUL:     { label: 'Pouco urgente', color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
-  VERDE:    { label: 'Não urgente',   color: '#22c55e', bg: 'rgba(34,197,94,0.12)' },
+  VERMELHO: { label: 'Emergência',    color: '#DC2626', bg: '#FEE2E2' },
+  LARANJA:  { label: 'Muito urgente', color: '#F97316', bg: '#FFEDD5' },
+  AMARELO:  { label: 'Urgente',       color: '#EAB308', bg: '#FEF9C3' },
+  AZUL:     { label: 'Pouco urgente', color: '#3B82F6', bg: '#DBEAFE' },
+  VERDE:    { label: 'Não urgente',   color: '#22C55E', bg: '#DCFCE7' },
 }
 
+// Cores próprias de status de agendamento — deliberadamente distintas das
+// cinco cores de risco acima (nenhum hex em comum), para que uma cor nunca
+// signifique gravidade clínica num contexto e outra coisa em outro.
 export const statusConfig: Record<StatusAgendamento, { label: string; color: string }> = {
-  AGENDADO:       { label: 'Agendado',       color: '#3b82f6' },
-  CONFIRMADO:     { label: 'Confirmado',     color: '#22c55e' },
-  EM_ATENDIMENTO: { label: 'Em atendimento', color: '#f97316' },
-  CONCLUIDO:      { label: 'Concluído',      color: '#6b7280' },
-  CANCELADO:      { label: 'Cancelado',      color: '#ef4444' },
-  FALTOU:         { label: 'Faltou',         color: '#a855f7' },
+  AGENDADO:       { label: 'Agendado',       color: '#2563EB' },
+  CONFIRMADO:     { label: 'Confirmado',     color: '#0D9488' },
+  EM_ATENDIMENTO: { label: 'Em atendimento', color: '#7C3AED' },
+  CONCLUIDO:      { label: 'Concluído',      color: '#64748B' },
+  CANCELADO:      { label: 'Cancelado',      color: '#E11D48' },
+  FALTOU:         { label: 'Faltou',         color: '#92400E' },
+}
+
+export const statusDescricaoPaciente: Record<StatusAgendamento, string> = {
+  AGENDADO: 'Sua consulta foi agendada.',
+  CONFIRMADO: 'Sua consulta está confirmada.',
+  EM_ATENDIMENTO: 'Você está em atendimento agora.',
+  CONCLUIDO: 'Este atendimento foi concluído.',
+  CANCELADO: 'Este agendamento foi cancelado.',
+  FALTOU: 'Consta que você não compareceu a este agendamento.',
 }

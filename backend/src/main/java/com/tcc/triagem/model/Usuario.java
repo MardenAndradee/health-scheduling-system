@@ -1,5 +1,7 @@
 package com.tcc.triagem.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.tcc.triagem.model.enums.TipoUsuario;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
@@ -16,6 +18,9 @@ import lombok.experimental.SuperBuilder;
 @AllArgsConstructor
 @SuperBuilder
 @Inheritance(strategy = InheritanceType.JOINED)
+// evita vazar o proxy do Hibernate (getHibernateLazyInitializer/getHandler) quando
+// Paciente/Profissional chegam como LAZY dentro de Agendamento/Anamnese/Consulta
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Usuario {
 
     @Id
@@ -33,6 +38,7 @@ public class Usuario {
 
     @NotBlank(message = "Senha é obrigatória")
     @Column(nullable = false)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY) // aceita no request, nunca serializa na resposta
     private String senha;
 
     @NotNull(message = "Tipo de usuário é obrigatório")

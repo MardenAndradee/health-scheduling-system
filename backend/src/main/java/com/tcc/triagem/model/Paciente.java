@@ -1,5 +1,6 @@
 package com.tcc.triagem.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.tcc.triagem.model.enums.TipoUsuario;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
@@ -37,16 +38,22 @@ public class Paciente extends Usuario {
     @Column(name = "data_nascimento", nullable = false)
     private LocalDate dataNascimento;
 
+    // @JsonIgnore evita recursão infinita na serialização: Anamnese/Agendamento/
+    // Consulta já trazem o próprio `paciente` embutido, então o lado "many" não
+    // precisa (e não pode, sob risco de StackOverflow) ser serializado de volta.
     @OneToMany(mappedBy = "paciente", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @JsonIgnore
     private List<Anamnese> anamneses = new ArrayList<>();
 
     @OneToMany(mappedBy = "paciente", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @JsonIgnore
     private List<Agendamento> agendamentos = new ArrayList<>();
 
     @OneToMany(mappedBy = "paciente", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @JsonIgnore
     private List<Consulta> consultas = new ArrayList<>();
 
     @PrePersist

@@ -11,6 +11,7 @@
 5. [Autenticação e Autorização](05-autenticacao-autorizacao.md) — fluxo JWT, perfis de usuário (ADMIN, PROFISSIONAL, PACIENTE) e regras de acesso por rota.
 6. [Frontend](06-frontend.md) — estrutura da aplicação Next.js, páginas, cliente HTTP e componentes de UI.
 7. [Guia de Instalação e Execução](07-guia-instalacao.md) — como rodar o backend e o frontend localmente.
+8. [Design](08-design.md) — paleta, tipografia e o sistema de tokens visuais do frontend.
 
 Além do índice numerado acima, [plannings/](plannings/README.md) guarda o histórico de planos de implementação (em andamento e concluídos) — ver a skill `.claude/skills/planning/SKILL.md` para o fluxo.
 

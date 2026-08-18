@@ -39,7 +39,7 @@ O sistema foi concebido com **dois níveis de acesso**:
 
 No modelo de dados, isso é representado pelo enum `TipoUsuario` (`ADMIN`, `PROFISSIONAL`, `PACIENTE`) — ver [Modelo de Dados](03-modelo-de-dados.md) e [Autenticação e Autorização](05-autenticacao-autorizacao.md).
 
-> **Status atual (importante):** o backend já modela e protege parcialmente essas duas visões (regras de `@PreAuthorize`/`SecurityFilterChain` distinguindo `ADMIN`/`PROFISSIONAL` de outros perfis). O frontend atual, porém, é um painel administrativo único (CRUD completo de todas as entidades) e ainda **não possui tela de login nem uma visão restrita para o paciente** (autoatendimento de anamnese + visualização da própria agenda). Isso está detalhado como lacuna conhecida em [Frontend](06-frontend.md#lacunas-conhecidas) e em [Autenticação e Autorização](05-autenticacao-autorizacao.md#lacunas-conhecidas).
+> **Status atual:** as duas visões já existem no frontend — login, cadastro público de paciente, um portal mobile-first para o paciente (início, solicitar atendimento, agendamentos, consultas) e a área do profissional/admin, cada uma protegida por papel. O que ainda falta: a fila de triagem virar acionável (agendar direto a partir dela), a dashboard com gráficos, a área de gestão do admin, e — a lacuna mais importante do lado do backend — o `PACIENTE` não ter seu acesso restrito aos próprios dados no servidor (hoje é só uma convenção do frontend). Ver [Frontend](06-frontend.md#lacunas-conhecidas), [Autenticação e Autorização](05-autenticacao-autorizacao.md#lacunas-conhecidas) e o plano em [docs/plannings/base-frontend-auth-e-areas.md](plannings/base-frontend-auth-e-areas.md).
 
 ## Tecnologias
 

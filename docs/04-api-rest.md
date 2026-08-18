@@ -68,7 +68,7 @@ Erro: `400` com mensagem "Email ou senha inválidos." se as credenciais forem in
 ```
 Response `201` no mesmo formato de `LoginResponseDTO` acima.
 
-> Este endpoint cria apenas um `Usuario` base (sem CPF, CRM etc.). Para cadastrar um paciente ou profissional completo, use `POST /pacientes` ou `POST /profissionais` (que também criam a senha com hash, mas **não retornam token** — veja a nota em [Autenticação e Autorização](05-autenticacao-autorizacao.md#lacunas-conhecidas)).
+> Este endpoint cria apenas um `Usuario` base (sem CPF, CRM etc.) — hoje é usado só para criar contas `ADMIN`/`PROFISSIONAL` diretamente via API, já que não há tela própria para isso. Para cadastrar um paciente completo (com CPF, data de nascimento etc.), use `POST /pacientes`, que é público — mas **não retorna token**: o cliente encadeia uma chamada a `POST /auth/login` em seguida (é o que a tela de cadastro do frontend faz).
 
 ## Usuários — `/usuarios`
 
@@ -90,7 +90,7 @@ CRUD genérico sobre a tabela base `usuarios` (todos os tipos).
 
 | Método | Rota | Descrição | Acesso |
 |---|---|---|---|
-| `POST` | `/pacientes` | Cadastra paciente (valida CPF e e-mail únicos) | autenticado |
+| `POST` | `/pacientes` | Cadastra paciente (valida CPF e e-mail únicos) | **público** (auto-cadastro) |
 | `GET` | `/pacientes` | Lista todos | autenticado |
 | `GET` | `/pacientes/{id}` | Busca por id | autenticado |
 | `GET` | `/pacientes/cpf/{cpf}` | Busca por CPF | autenticado |
@@ -178,7 +178,7 @@ A coluna "Acesso" acima reflete as regras configuradas em `SecurityConfig`. Fora
 
 | Regra | Rotas |
 |---|---|
-| Pública (sem token) | `POST/GET /auth/**` |
+| Pública (sem token) | `POST/GET /auth/**`, `POST /pacientes` |
 | Somente `ADMIN` | `POST/PUT/DELETE /profissionais/**`, `DELETE /usuarios/**` |
 | `ADMIN` ou `PROFISSIONAL` | `GET /anamneses/triagem`, `GET /pacientes/urgentes` |
 | Qualquer usuário autenticado | todas as demais rotas |

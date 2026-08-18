@@ -9,7 +9,7 @@ This repo tracks implementation plans in `docs/plannings/`. See `docs/plannings/
 
 ## Starting a plan (plan just approved, work about to begin)
 
-1. Write the approved plan to `docs/plannings/AAAA-MM-DD-titulo-curto.md` (today's date, kebab-case slug, in Portuguese to match the rest of `docs/`).
+1. Write the approved plan to `docs/plannings/titulo-curto.md` (short kebab-case slug summarizing the plan, in Portuguese to match the rest of `docs/`). No date prefix — the date lives in git history, not the filename.
 2. Content: the plan as agreed with the user — goal, approach, steps, files to touch. This is the *plan*, not the outcome — it's fine if it changes during implementation.
 3. If the plan changes materially while work is in progress, update this same file rather than creating a new one.
 4. Do not touch `docs/plannings/concluidos.md` at this stage.

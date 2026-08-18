@@ -96,6 +96,7 @@ export interface AgendamentoForm {
   observacoes: string
   pacienteId: number
   profissionalId: number
+  anamneseId?: number
 }
 
 export interface ConsultaForm {
@@ -113,4 +114,27 @@ export interface ApiError {
   mensagem: string
   erro: string
   status: number
+}
+
+// ─── Autenticação ─────────────────────────────────────────────────────────────
+
+export interface LoginRequest {
+  email: string
+  senha: string
+}
+
+export interface LoginResponse {
+  token: string
+  tipo: string
+  id: number
+  nome: string
+  email: string
+  tipoUsuario: TipoUsuario
+}
+
+export interface SessaoUsuario {
+  id: number
+  nome: string
+  email: string
+  tipoUsuario: TipoUsuario
 }

@@ -40,4 +40,8 @@ public class Agendamento {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "profissional_id", nullable = false)
     private Profissional profissional;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "anamnese_id")
+    private Anamnese anamnese;
 }

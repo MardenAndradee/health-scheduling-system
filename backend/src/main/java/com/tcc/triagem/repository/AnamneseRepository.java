@@ -18,7 +18,9 @@ public interface AnamneseRepository extends JpaRepository<Anamnese, Long> {
 
     List<Anamnese> findByDataRegistroBetween(LocalDateTime inicio, LocalDateTime fim);
 
-    @Query("SELECT a FROM Anamnese a ORDER BY CASE a.nivelUrgencia " +
+    @Query("SELECT a FROM Anamnese a WHERE NOT EXISTS " +
+           "(SELECT 1 FROM Agendamento ag WHERE ag.anamnese = a) " +
+           "ORDER BY CASE a.nivelUrgencia " +
            "WHEN 'VERMELHO' THEN 1 WHEN 'LARANJA' THEN 2 WHEN 'AMARELO' THEN 3 " +
            "WHEN 'AZUL' THEN 4 WHEN 'VERDE' THEN 5 END, a.dataRegistro ASC")
     List<Anamnese> findAllOrdenadosPorUrgencia();

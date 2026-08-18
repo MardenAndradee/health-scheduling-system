@@ -24,6 +24,9 @@ public class ProfissionalService {
 
     @Transactional
     public Profissional criar(ProfissionalDTO dto) {
+        if (dto.getSenha() == null || dto.getSenha().isBlank()) {
+            throw new RegraDeNegocioException("Senha é obrigatória.");
+        }
         if (usuarioRepository.existsByEmail(dto.getEmail())) {
             throw new RegraDeNegocioException("Já existe um usuário com o email: " + dto.getEmail());
         }
@@ -79,7 +82,9 @@ public class ProfissionalService {
 
         profissional.setNome(dto.getNome());
         profissional.setEmail(dto.getEmail());
-        profissional.setSenha(passwordEncoder.encode(dto.getSenha()));
+        if (dto.getSenha() != null && !dto.getSenha().isBlank()) {
+            profissional.setSenha(passwordEncoder.encode(dto.getSenha()));
+        }
         profissional.setEspecialidade(dto.getEspecialidade());
         profissional.setCrm(dto.getCrm());
         profissional.setCargo(dto.getCargo());
