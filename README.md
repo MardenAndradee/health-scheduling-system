@@ -68,6 +68,10 @@ src
 - Melhorar o fluxo de atendimento.
 - Reduzir o tempo de espera.
 
+## Documentação
+
+Documentação técnica detalhada (arquitetura, modelo de dados, API REST, autenticação e guia de instalação) disponível em [docs/](docs/README.md).
+
 ## Status
 
 🚧 Projeto em desenvolvimento.
