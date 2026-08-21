@@ -1,18 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Stethoscope, List as ListIcon, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { agendamentosApi, anamnesesApi, pacientesApi, profissionaisApi } from '@/lib/api'
 import { Anamnese, AnamneseForm, Paciente, Profissional } from '@/types'
 import {
   PageHeader, Card, Button, Input, Select, Textarea, Modal,
-  Empty, Loading, Toast, UrgenciaBadge,
+  Empty, Loading, Toast,
 } from '@/components/ui'
-import { formatDateTime, mensagemErro, urgenciaConfig } from '@/lib/utils'
+import { formatDateTime, mensagemErro } from '@/lib/utils'
 
 const empty: AnamneseForm = { sintomas: '', observacoes: '', nivelUrgencia: 'VERDE', pacienteId: 0 }
-
-const urgenciaOpts = Object.entries(urgenciaConfig).map(([v, c]) => ({ value: v, label: c.label }))
 
 interface AgendarForm {
   profissionalId: number
@@ -23,35 +21,28 @@ interface AgendarForm {
 const agendarVazio: AgendarForm = { profissionalId: 0, dataConsulta: '', observacoes: '' }
 
 export default function AnamnesesPage() {
-  const [lista, setLista] = useState<Anamnese[]>([])
-  const [pacientes, setPacientes] = useState<Paciente[]>([])
+  const [lista, setLista]           = useState<Anamnese[]>([])
+  const [pacientes, setPacientes]   = useState<Paciente[]>([])
   const [profissionais, setProfissionais] = useState<Profissional[]>([])
-  const [loading, setLoading] = useState(true)
-  const [view, setView] = useState<'lista' | 'triagem'>('triagem')
-  const [modal, setModal] = useState<'criar' | 'editar' | null>(null)
-  const [selected, setSelected] = useState<Anamnese | null>(null)
-  const [form, setForm] = useState<AnamneseForm>(empty)
-  const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
+  const [loading, setLoading]       = useState(true)
+  const [modal, setModal]           = useState<'criar' | 'editar' | null>(null)
+  const [selected, setSelected]     = useState<Anamnese | null>(null)
+  const [form, setForm]             = useState<AnamneseForm>(empty)
+  const [saving, setSaving]         = useState(false)
+  const [toast, setToast]           = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
 
-  const [agendarAlvo, setAgendarAlvo] = useState<Anamnese | null>(null)
-  const [agendarForm, setAgendarForm] = useState<AgendarForm>(agendarVazio)
+  const [agendarAlvo, setAgendarAlvo]   = useState<Anamnese | null>(null)
+  const [agendarForm, setAgendarForm]   = useState<AgendarForm>(agendarVazio)
   const [agendarSalvando, setAgendarSalvando] = useState(false)
 
-  const load = (v: 'lista' | 'triagem' = view) => {
+  const load = () => {
     setLoading(true)
-    const anamneses = v === 'triagem' ? anamnesesApi.triagem() : anamnesesApi.listar()
-    Promise.all([anamneses, pacientesApi.listar(), profissionaisApi.listar()])
+    Promise.all([anamnesesApi.listar(), pacientesApi.listar(), profissionaisApi.listar()])
       .then(([an, pac, prof]) => { setLista(an); setPacientes(pac); setProfissionais(prof) })
       .finally(() => setLoading(false))
   }
 
   useEffect(() => { load() }, [])
-
-  const trocarView = (v: 'lista' | 'triagem') => {
-    setView(v)
-    load(v)
-  }
 
   const showToast = (msg: string, type: 'success' | 'error') => {
     setToast({ msg, type })
@@ -59,6 +50,7 @@ export default function AnamnesesPage() {
   }
 
   const openCriar = () => { setForm(empty); setModal('criar') }
+
   const openEditar = (a: Anamnese) => {
     setSelected(a)
     setForm({ sintomas: a.sintomas, observacoes: a.observacoes || '', nivelUrgencia: a.nivelUrgencia, pacienteId: a.paciente.id })
@@ -86,14 +78,6 @@ export default function AnamnesesPage() {
     } catch (e) { showToast(mensagemErro(e), 'error') }
   }
 
-  const f = (k: keyof AnamneseForm) => (v: string) =>
-    setForm(prev => ({ ...prev, [k]: k === 'pacienteId' ? Number(v) : v }))
-
-  const abrirAgendar = (a: Anamnese) => {
-    setAgendarAlvo(a)
-    setAgendarForm(agendarVazio)
-  }
-
   const confirmarAgendar = async () => {
     if (!agendarAlvo) return
     setAgendarSalvando(true)
@@ -104,76 +88,56 @@ export default function AnamnesesPage() {
         observacoes: agendarForm.observacoes,
         pacienteId: agendarAlvo.paciente.id,
         profissionalId: agendarForm.profissionalId,
-        anamneseId: agendarAlvo.id,
       })
       showToast('Agendamento criado!', 'success')
       setAgendarAlvo(null)
-      load()
     } catch (e) { showToast(mensagemErro(e), 'error') }
     finally { setAgendarSalvando(false) }
   }
+
+  const f = (k: keyof AnamneseForm) => (v: string) =>
+    setForm(prev => ({ ...prev, [k]: k === 'pacienteId' ? Number(v) : v }))
 
   return (
     <div>
       <PageHeader
         title="Anamneses"
-        subtitle="Registros de triagem ordenados por urgência"
+        subtitle="Registros de anamnese dos pacientes"
         action={<Button onClick={openCriar}>+ Nova anamnese</Button>}
       />
 
-      {/* Toggle view */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        {(['triagem', 'lista'] as const).map(v => (
-          <button key={v} onClick={() => trocarView(v)} style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            padding: '8px 16px', borderRadius: 'var(--radius)', fontSize: 13.5,
-            fontFamily: 'Inter, sans-serif', cursor: 'pointer', fontWeight: view === v ? 600 : 400,
-            background: view === v ? 'var(--accent)' : 'var(--surface)',
-            border: `1px solid ${view === v ? 'var(--accent)' : 'var(--border)'}`,
-            color: view === v ? '#fff' : 'var(--muted)',
-          }}>
-            {v === 'triagem' ? <Stethoscope size={15} /> : <ListIcon size={15} />}
-            {v === 'triagem' ? 'Fila de triagem' : 'Lista completa'}
-          </button>
-        ))}
-      </div>
-
       {loading ? <Loading /> : lista.length === 0 ? <Empty message="Nenhuma anamnese registrada." /> : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {lista.map(a => {
-            const cfg = urgenciaConfig[a.nivelUrgencia]
-            return (
-              <Card key={a.id} style={{
-                borderLeft: `3px solid ${cfg.color}`,
-                display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start',
-                justifyContent: 'space-between', gap: 16, padding: '14px 18px',
-              }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>{a.paciente?.nome || '—'}</span>
-                    <UrgenciaBadge nivel={a.nivelUrgencia} />
-                  </div>
-                  <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 4, lineHeight: 1.5 }}>
-                    {a.sintomas}
-                  </p>
-                  {a.observacoes && (
-                    <p style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>{a.observacoes}</p>
-                  )}
-                  <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8 }}>
-                    {formatDateTime(a.dataRegistro)}
-                  </div>
+          {lista.map(a => (
+            <Card key={a.id} style={{
+              display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start',
+              justifyContent: 'space-between', gap: 16, padding: '14px 18px',
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ marginBottom: 6 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>{a.paciente?.nome || '—'}</span>
                 </div>
-                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                  <Button size="sm" onClick={() => abrirAgendar(a)}>Agendar</Button>
-                  <Button size="sm" variant="ghost" onClick={() => openEditar(a)}>Editar</Button>
-                  <Button size="sm" variant="danger" onClick={() => handleDelete(a.id)}><X size={14} /></Button>
+                <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 4, lineHeight: 1.5 }}>
+                  {a.sintomas}
+                </p>
+                {a.observacoes && (
+                  <p style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>{a.observacoes}</p>
+                )}
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8 }}>
+                  {formatDateTime(a.dataRegistro)}
                 </div>
-              </Card>
-            )
-          })}
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <Button size="sm" onClick={() => { setAgendarAlvo(a); setAgendarForm(agendarVazio) }}>Agendar</Button>
+                <Button size="sm" variant="ghost" onClick={() => openEditar(a)}>Editar</Button>
+                <Button size="sm" variant="danger" onClick={() => handleDelete(a.id)}><X size={14} /></Button>
+              </div>
+            </Card>
+          ))}
         </div>
       )}
 
+      {/* Modal criar/editar anamnese */}
       {modal && (
         <Modal title={modal === 'criar' ? 'Nova anamnese' : 'Editar anamnese'} onClose={() => setModal(null)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -185,14 +149,7 @@ export default function AnamnesesPage() {
               required
             />
             <Textarea label="Sintomas" value={form.sintomas} onChange={f('sintomas')}
-              placeholder="Descreva os sintomas relatados pelo paciente..." rows={3} />
-            <Select
-              label="Nível de urgência"
-              value={form.nivelUrgencia}
-              onChange={f('nivelUrgencia')}
-              options={urgenciaOpts}
-              required
-            />
+              placeholder="Descreva os sintomas relatados pelo paciente..." rows={4} />
             <Textarea label="Observações" value={form.observacoes} onChange={f('observacoes')}
               placeholder="Observações adicionais..." rows={2} />
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
@@ -203,16 +160,13 @@ export default function AnamnesesPage() {
         </Modal>
       )}
 
+      {/* Modal agendar a partir da anamnese */}
       {agendarAlvo && (
-        <Modal title={`Agendar atendimento — ${agendarAlvo.paciente?.nome || ''}`} onClose={() => setAgendarAlvo(null)}>
+        <Modal
+          title={`Agendar — ${agendarAlvo.paciente?.nome || ''}`}
+          onClose={() => setAgendarAlvo(null)}
+        >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
-              background: 'var(--surface2)', borderRadius: 'var(--radius)',
-            }}>
-              <UrgenciaBadge nivel={agendarAlvo.nivelUrgencia} />
-              <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{agendarAlvo.sintomas}</span>
-            </div>
             <Select
               label="Profissional"
               value={agendarForm.profissionalId ? String(agendarForm.profissionalId) : ''}
@@ -221,7 +175,7 @@ export default function AnamnesesPage() {
               required
             />
             <Input
-              label="Data e hora da consulta"
+              label="Data e hora"
               value={agendarForm.dataConsulta}
               onChange={v => setAgendarForm(prev => ({ ...prev, dataConsulta: v }))}
               type="datetime-local"
