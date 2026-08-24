@@ -50,6 +50,7 @@ export interface Agendamento {
   observacoes?: string
   paciente: Paciente
   profissional: Profissional
+  anamnese?: Anamnese | null
 }
 
 export interface Consulta {

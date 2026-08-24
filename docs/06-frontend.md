@@ -32,7 +32,7 @@ frontend/app/
 ├── (paciente)/portal/              # guard: PACIENTE — mobile-first, PortalShell (header + nav inferior)
 │   ├── inicio/page.tsx              # próximo atendimento + atalho + últimas consultas
 │   ├── solicitar/page.tsx           # wizard dinâmico: especialidade → identificação → perguntas da especialidade → revisão (lib/especialidades/)
-│   ├── agendamentos/page.tsx        # status dos agendamentos, com texto explicativo por status
+│   ├── agendamentos/page.tsx        # agendamentos reais + anamneses ainda sem agendamento ("Aguardando agendamento")
 │   └── consultas/page.tsx           # diagnóstico e prescrição recebidos
 └── (admin)/admin/                   # guard: ADMIN — AppShell
     ├── page.tsx                      # painel geral: estatísticas + atalhos
