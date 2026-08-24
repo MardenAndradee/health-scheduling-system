@@ -157,7 +157,7 @@ export default function AnamnesesPage() {
                     {a.sintomas}
                   </p>
                   {a.observacoes && (
-                    <p style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>{a.observacoes}</p>
+                    <p style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic', whiteSpace: 'pre-line' }}>{a.observacoes}</p>
                   )}
                   <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8 }}>
                     {formatDateTime(a.dataRegistro)}

@@ -26,6 +26,13 @@ export function maskCpf(value: string): string {
     .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
 }
 
+/** 00000-000, formatado progressivamente enquanto o usuário digita. */
+export function maskCep(value: string): string {
+  return apenasDigitos(value)
+    .slice(0, 8)
+    .replace(/(\d{5})(\d)/, '$1-$2')
+}
+
 /** (DD) 00000-0000 para celular ou (DD) 0000-0000 para fixo, conforme a quantidade de dígitos digitados. */
 export function maskTelefone(value: string): string {
   const digitos = apenasDigitos(value).slice(0, 11)
@@ -37,6 +44,18 @@ export function maskTelefone(value: string): string {
   return digitos
     .replace(/(\d{2})(\d)/, '($1) $2')
     .replace(/(\d{4})(\d)/, '$1-$2')
+}
+
+/** Junta os pedaços de um endereço estruturado numa única string legível — o backend só tem uma coluna de texto para endereço. */
+export function formatarEnderecoCompleto(valor: {
+  endereco: string; bairro: string; cidade: string; estado: string; cep: string
+}): string {
+  return [
+    valor.endereco,
+    valor.bairro,
+    valor.cidade && valor.estado ? `${valor.cidade}/${valor.estado}` : valor.cidade,
+    valor.cep ? `CEP ${maskCep(valor.cep)}` : '',
+  ].filter(Boolean).join(' - ')
 }
 
 export function mensagemErro(erro: unknown): string {

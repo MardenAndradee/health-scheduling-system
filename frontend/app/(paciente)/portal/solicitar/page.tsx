@@ -1,81 +1,136 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/components/auth/AuthProvider'
-import { anamnesesApi } from '@/lib/api'
-import { Button, Card, Checkbox, Input, Select, Textarea } from '@/components/ui'
-import { mensagemErro } from '@/lib/utils'
+import { anamnesesApi, pacientesApi } from '@/lib/api'
+import { Button, Card, Stepper } from '@/components/ui'
+import { apenasDigitos, mensagemErro } from '@/lib/utils'
+import { buscarEspecialidade } from '@/lib/especialidades/config'
+import { calcularNivelUrgenciaEspecialidade } from '@/lib/especialidades/pontuacao'
+import { formatarQueixa, formatarResumoAnamnese } from '@/lib/especialidades/resumo'
 import {
-  calcularNivelUrgencia, comorbidadeOpcoes, dorOpcoes, duracaoOpcoes,
-  formatarResumoTriagem, DuracaoSintomas, RespostasTriagem,
-} from '@/lib/triagem'
+  Especialidade, EspecialidadeId, IdentificacaoForm, RespostasEspecialidade, RespostaValor,
+  identificacaoVazia,
+} from '@/lib/especialidades/tipos'
+import { EtapaEspecialidade } from './_components/EtapaEspecialidade'
+import { EtapaIdentificacao } from './_components/EtapaIdentificacao'
+import { EtapaGrupoPerguntas } from './_components/EtapaGrupoPerguntas'
+import { EtapaRevisao } from './_components/EtapaRevisao'
 
-interface FormState {
-  idade: string
-  comorbidades: string[]
-  sintomas: string
-  duracaoSintomas: DuracaoSintomas
-  dorIntensidade: string
-  faltaAr: boolean
-  febre: boolean
-  sangramento: boolean
+type Passo =
+  | { tipo: 'especialidade' }
+  | { tipo: 'identificacao' }
+  | { tipo: 'grupo'; grupoId: string }
+  | { tipo: 'revisao' }
+
+function construirPassos(especialidade: Especialidade | null): Passo[] {
+  const passos: Passo[] = [{ tipo: 'especialidade' }]
+  if (!especialidade) return passos
+  passos.push({ tipo: 'identificacao' })
+  especialidade.grupos.forEach(g => passos.push({ tipo: 'grupo', grupoId: g.id }))
+  passos.push({ tipo: 'revisao' })
+  return passos
 }
 
-const vazio: FormState = {
-  idade: '', comorbidades: [], sintomas: '', duracaoSintomas: 'horas',
-  dorIntensidade: '0', faltaAr: false, febre: false, sangramento: false,
+function calcularIdade(dataNascimentoIso: string): number {
+  const hoje = new Date()
+  const nascimento = new Date(dataNascimentoIso)
+  let idade = hoje.getFullYear() - nascimento.getFullYear()
+  const aindaNaoFezAniversario =
+    hoje.getMonth() < nascimento.getMonth() ||
+    (hoje.getMonth() === nascimento.getMonth() && hoje.getDate() < nascimento.getDate())
+  if (aindaNaoFezAniversario) idade--
+  return idade
 }
 
-const TOTAL_PASSOS = 4
+const identificacaoValida = (form: IdentificacaoForm) =>
+  form.nomeCompleto.trim() !== '' &&
+  Number(form.idade) > 0 && Number(form.idade) < 130 &&
+  form.sexo !== '' &&
+  apenasDigitos(form.cpf).length === 11 &&
+  form.cor !== '' &&
+  form.endereco.trim() !== '' &&
+  form.bairro.trim() !== '' &&
+  form.cidade.trim() !== '' &&
+  form.estado.trim() !== '' &&
+  apenasDigitos(form.cep).length === 8 &&
+  apenasDigitos(form.celular).length >= 10 &&
+  form.queixaPrincipal.trim() !== ''
 
 export default function SolicitarAtendimentoPage() {
   const { usuario } = useAuth()
-  const [passo, setPasso] = useState(1)
-  const [form, setForm] = useState<FormState>(vazio)
+
+  const [especialidadeId, setEspecialidadeId] = useState<EspecialidadeId | null>(null)
+  const [identificacao, setIdentificacao] = useState<IdentificacaoForm>(identificacaoVazia)
+  const [respostas, setRespostas] = useState<RespostasEspecialidade>({})
+  const [passoIndex, setPassoIndex] = useState(0)
+
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
   const [erro, setErro] = useState('')
 
-  const setCampo = <K extends keyof FormState>(campo: K) => (valor: FormState[K]) =>
-    setForm(prev => ({ ...prev, [campo]: valor }))
+  const especialidadeAtual = especialidadeId ? buscarEspecialidade(especialidadeId) ?? null : null
+  const passos = useMemo(() => construirPassos(especialidadeAtual), [especialidadeAtual])
+  const passoAtual = passos[passoIndex]
 
-  const alternarComorbidade = (valor: string) => {
-    setForm(prev => ({
+  // Pré-preenche com os dados que o paciente já cadastrou, poupando digitação.
+  // Falha é silenciosa — o formulário só começa vazio, como hoje.
+  useEffect(() => {
+    if (!usuario) return
+    pacientesApi.buscarPorId(usuario.id).then(paciente => {
+      setIdentificacao(prev => ({
+        ...prev,
+        nomeCompleto: prev.nomeCompleto || paciente.nome,
+        cpf: prev.cpf || apenasDigitos(paciente.cpf),
+        celular: prev.celular || (paciente.telefone ? apenasDigitos(paciente.telefone) : ''),
+        endereco: prev.endereco || paciente.endereco || '',
+        idade: prev.idade || String(calcularIdade(paciente.dataNascimento)),
+      }))
+    }).catch(() => { /* pré-preenchimento é só conveniência — segue sem ele */ })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuario?.id])
+
+  const setCampo = <K extends keyof IdentificacaoForm>(campo: K) => (valor: IdentificacaoForm[K]) =>
+    setIdentificacao(prev => ({ ...prev, [campo]: valor }))
+
+  const selecionarEspecialidade = (id: EspecialidadeId) => {
+    if (id !== especialidadeId) {
+      setRespostas({}) // respostas são indexadas por grupoId, que muda entre especialidades
+      setEspecialidadeId(id)
+    }
+  }
+
+  const setRespostaPergunta = (grupoId: string, perguntaId: string, valor: RespostaValor) => {
+    setRespostas(prev => ({
       ...prev,
-      comorbidades: prev.comorbidades.includes(valor)
-        ? prev.comorbidades.filter(c => c !== valor)
-        : [...prev.comorbidades, valor],
+      [grupoId]: { ...prev[grupoId], [perguntaId]: valor },
     }))
   }
 
-  const passo1Valido = form.idade.trim() !== '' && Number(form.idade) > 0 && Number(form.idade) < 130
-  const passo2Valido = form.sintomas.trim() !== ''
+  const podeAvancar = (() => {
+    switch (passoAtual.tipo) {
+      case 'especialidade': return especialidadeId !== null
+      case 'identificacao': return identificacaoValida(identificacao)
+      case 'grupo': return true
+      case 'revisao': return true
+    }
+  })()
 
-  const podeAvancar = passo === 1 ? passo1Valido : passo === 2 ? passo2Valido : true
-
-  const avancar = () => setPasso(p => Math.min(p + 1, TOTAL_PASSOS))
-  const voltar = () => setPasso(p => Math.max(p - 1, 1))
+  const avancar = () => setPassoIndex(i => Math.min(i + 1, passos.length - 1))
+  const voltar = () => setPassoIndex(i => Math.max(i - 1, 0))
 
   const handleEnviar = async () => {
-    if (!usuario || enviando) return
+    if (!usuario || !especialidadeAtual || enviando) return
     setEnviando(true)
     setErro('')
     try {
-      const respostas: RespostasTriagem = {
-        idade: Number(form.idade),
-        comorbidades: form.comorbidades,
-        sintomas: form.sintomas,
-        duracaoSintomas: form.duracaoSintomas,
-        dorIntensidade: Number(form.dorIntensidade),
-        faltaAr: form.faltaAr,
-        febre: form.febre,
-        sangramento: form.sangramento,
-      }
+      const idade = Number(identificacao.idade)
+      const nivel = calcularNivelUrgenciaEspecialidade(especialidadeAtual, respostas, idade)
       await anamnesesApi.criar({
-        sintomas: form.sintomas,
-        observacoes: formatarResumoTriagem(respostas),
-        nivelUrgencia: calcularNivelUrgencia(respostas),
+        sintomas: formatarQueixa(especialidadeAtual, identificacao.queixaPrincipal),
+        observacoes: formatarResumoAnamnese(identificacao, especialidadeAtual, respostas, nivel),
+        nivelUrgencia: nivel,
         pacienteId: usuario.id,
       })
       setEnviado(true)
@@ -112,98 +167,34 @@ export default function SolicitarAtendimentoPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div>
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Solicitar atendimento</h1>
-        <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Passo {passo} de {TOTAL_PASSOS}</p>
+        <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Passo {passoIndex + 1} de {passos.length}</p>
       </div>
 
-      {/* Barra de progresso simples */}
-      <div style={{ display: 'flex', gap: 4 }}>
-        {Array.from({ length: TOTAL_PASSOS }).map((_, i) => (
-          <div key={i} style={{
-            flex: 1, height: 4, borderRadius: 2,
-            background: i < passo ? 'var(--accent)' : 'var(--border)',
-          }} />
-        ))}
-      </div>
+      <Stepper total={passos.length} atual={passoIndex + 1} />
 
       <Card>
-        {passo === 1 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>Sobre você</div>
-            <Input label="Sua idade" value={form.idade} onChange={setCampo('idade')} type="number" placeholder="Ex: 34" required />
-            <div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500, marginBottom: 8 }}>
-                Você tem alguma dessas condições? (opcional)
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {comorbidadeOpcoes.map(o => (
-                  <Checkbox
-                    key={o.value}
-                    label={o.label}
-                    checked={form.comorbidades.includes(o.value)}
-                    onChange={() => alternarComorbidade(o.value)}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+        {passoAtual.tipo === 'especialidade' && (
+          <EtapaEspecialidade selecionada={especialidadeId} onSelecionar={selecionarEspecialidade} />
         )}
 
-        {passo === 2 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>O que você está sentindo?</div>
-            <Textarea
-              label="Descreva com suas palavras"
-              value={form.sintomas}
-              onChange={setCampo('sintomas')}
-              placeholder="Ex: dor de cabeça forte desde ontem, com enjoo"
-              rows={4}
-            />
-            <Select
-              label="Quando começou?"
-              value={form.duracaoSintomas}
-              onChange={v => setCampo('duracaoSintomas')(v as DuracaoSintomas)}
-              options={duracaoOpcoes}
-            />
-          </div>
+        {passoAtual.tipo === 'identificacao' && (
+          <EtapaIdentificacao form={identificacao} setCampo={setCampo} />
         )}
 
-        {passo === 3 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>Sinais de alerta</div>
-            <Select
-              label="Quanto está doendo, de 0 a 10?"
-              value={form.dorIntensidade}
-              onChange={setCampo('dorIntensidade')}
-              options={dorOpcoes}
+        {passoAtual.tipo === 'grupo' && especialidadeAtual && (() => {
+          const grupo = especialidadeAtual.grupos.find(g => g.id === passoAtual.grupoId)
+          if (!grupo) return null
+          return (
+            <EtapaGrupoPerguntas
+              grupo={grupo}
+              respostas={respostas[grupo.id] || {}}
+              onChange={(perguntaId, valor) => setRespostaPergunta(grupo.id, perguntaId, valor)}
             />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <Checkbox label="Estou com falta de ar" checked={form.faltaAr} onChange={setCampo('faltaAr')} />
-              <Checkbox label="Estou com febre" checked={form.febre} onChange={setCampo('febre')} />
-              <Checkbox label="Estou com algum sangramento" checked={form.sangramento} onChange={setCampo('sangramento')} />
-            </div>
-          </div>
-        )}
+          )
+        })()}
 
-        {passo === 4 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Confira antes de enviar</div>
-            {[
-              ['Idade', `${form.idade} anos`],
-              ['Condições prévias', form.comorbidades.length > 0
-                ? form.comorbidades.map(c => comorbidadeOpcoes.find(o => o.value === c)?.label).join(', ')
-                : 'Nenhuma informada'],
-              ['Sintomas', form.sintomas || '—'],
-              ['Início dos sintomas', duracaoOpcoes.find(o => o.value === form.duracaoSintomas)?.label || '—'],
-              ['Intensidade da dor', dorOpcoes.find(o => o.value === form.dorIntensidade)?.label || '—'],
-              ['Sinais de alerta', [form.faltaAr && 'falta de ar', form.febre && 'febre', form.sangramento && 'sangramento']
-                .filter(Boolean).join(', ') || 'Nenhum'],
-            ].map(([label, valor]) => (
-              <div key={label}>
-                <div style={{ fontSize: 11, color: 'var(--muted)', letterSpacing: '.05em' }}>{String(label).toUpperCase()}</div>
-                <div style={{ fontSize: 13.5, marginTop: 2 }}>{valor}</div>
-              </div>
-            ))}
-          </div>
+        {passoAtual.tipo === 'revisao' && especialidadeAtual && (
+          <EtapaRevisao especialidade={especialidadeAtual} identificacao={identificacao} respostas={respostas} />
         )}
       </Card>
 
@@ -217,12 +208,12 @@ export default function SolicitarAtendimentoPage() {
       )}
 
       <div style={{ display: 'flex', gap: 10 }}>
-        {passo > 1 && (
+        {passoIndex > 0 && (
           <Button variant="ghost" onClick={voltar} style={{ flex: 1, justifyContent: 'center' }}>
             Voltar
           </Button>
         )}
-        {passo < TOTAL_PASSOS ? (
+        {passoAtual.tipo !== 'revisao' ? (
           <Button onClick={avancar} disabled={!podeAvancar} style={{ flex: 1, justifyContent: 'center' }}>
             Continuar
           </Button>

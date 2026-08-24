@@ -5,8 +5,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { Button, Input } from '@/components/ui'
+import { EnderecoFields, EnderecoValor, enderecoVazio } from '@/components/forms/EnderecoFields'
 import { PacienteForm } from '@/types'
-import { apenasDigitos, maskCpf, maskTelefone, mensagemErro } from '@/lib/utils'
+import { apenasDigitos, formatarEnderecoCompleto, maskCpf, maskTelefone, mensagemErro } from '@/lib/utils'
 
 const vazio: PacienteForm = {
   nome: '', email: '', senha: '', cpf: '', telefone: '', endereco: '', dataNascimento: '',
@@ -16,18 +17,22 @@ export default function CadastroPage() {
   const { registrar } = useAuth()
   const router = useRouter()
   const [form, setForm] = useState<PacienteForm>(vazio)
+  const [endereco, setEndereco] = useState<EnderecoValor>(enderecoVazio)
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
 
   const f = (k: keyof PacienteForm) => (v: string) =>
     setForm(prev => ({ ...prev, [k]: v }))
 
+  const setCampoEndereco = <K extends keyof EnderecoValor>(campo: K) => (valor: EnderecoValor[K]) =>
+    setEndereco(prev => ({ ...prev, [campo]: valor }))
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setErro('')
     setEnviando(true)
     try {
-      await registrar(form)
+      await registrar({ ...form, endereco: formatarEnderecoCompleto(endereco) })
       router.replace('/portal/inicio')
     } catch (err) {
       setErro(mensagemErro(err))
@@ -58,7 +63,7 @@ export default function CadastroPage() {
           placeholder="(00) 00000-0000"
         />
       </div>
-      <Input label="Endereço" value={form.endereco || ''} onChange={f('endereco')} />
+      <EnderecoFields valor={endereco} onChange={setCampoEndereco} />
       <Input label="Data de nascimento" value={form.dataNascimento || ''} onChange={f('dataNascimento')} type="date" required />
 
       {erro && (

@@ -4,6 +4,24 @@ Histórico centralizado do que já foi planejado e implementado no projeto. Cada
 
 ---
 
+## 2026-08-24 — Solicitar atendimento: escolha de especialidade + anamnese por tipo
+
+**Plano original:** `solicitar-atendimento-especialidades.md` (removido)
+
+Substituído o wizard fixo de 4 passos de `(paciente)/portal/solicitar/page.tsx` por um fluxo dinâmico: o paciente escolhe um tipo de atendimento (Clínico Geral, Enfermagem, Odontologia, Psicologia, Nutrição — cards com ícone/descrição), preenche um bloco fixo de identificação (nome, idade, sexo, CPF, naturalidade, cor/raça, endereço completo com busca automática por CEP via ViaCEP, celular, queixa principal) e depois responde o questionário de anamnese específico da especialidade escolhida, organizado em grupos com peso clínico — número de passos varia por especialidade (3 a 4 grupos).
+
+Modelo de dados config-driven criado em `frontend/lib/especialidades/` (`tipos.ts`, `config.ts`, `pontuacao.ts`, `resumo.ts`), decompondo cada pergunta composta do cliente em sub-perguntas tipadas (`sim_nao`/`escala_0_10`/`checkbox_multiplo`/`texto_livre`) — editar/adicionar pergunta é mudança só em `config.ts`, nunca em componente (`PerguntaField.tsx` decide o controle certo olhando só o `tipo`). Nível de urgência calculado por uma heurística provisória e genérica (soma ponderada por peso do grupo + piso de alarme para grupos peso ≥8), substituindo `lib/triagem.ts` (removido). Busca de CEP via `hooks/useCepLookup.ts`, com estados de carregamento/erro e guarda contra resposta obsoleta. Identificação é pré-preenchida a partir do cadastro já existente do paciente (`pacientesApi.buscarPorId`), permanecendo editável. Novos componentes reutilizáveis em `components/ui/index.tsx`: `Stepper`, `SelecaoCard`, `ToggleSimNao`, `CheckboxGroup`.
+
+Plano **frontend-only**, como definido com o usuário — nenhum contrato de backend mudou (`AnamneseDTO` continua só `sintomas`/`observacoes`/`nivelUrgencia`/`pacienteId`); toda a informação nova é serializada em texto legível dentro de `sintomas` (`"[Especialidade] queixa principal"`) e `observacoes` (bloco multi-linha).
+
+Validado em navegador real (Playwright), não só por `tsc`/`lint`/`build`: fluxo completo em duas especialidades (Odontologia com sinais de alarme marcados → `LARANJA`, confirmando o piso de alarme; Nutrição com todas as respostas padrão → `VERDE`), pré-preenchimento de identificação, busca de CEP válido e inválido, bloqueio de avanço com campo obrigatório vazio, reset de respostas ao trocar de especialidade (com preservação da identificação), e renderização correta (multi-linha) do resumo na fila do profissional.
+
+**Desvios em relação ao plano:** nenhum — a implementação seguiu o plano à risca, incluindo os ícones (`Stethoscope`/`Syringe`/`Smile`/`Brain`/`Apple`, confirmados existentes em `lucide-react` antes de implementar) e a decomposição de perguntas.
+
+**Arquivos principais alterados:** `frontend/lib/especialidades/{tipos,config,pontuacao,resumo}.ts` (novos), `frontend/hooks/useCepLookup.ts` (novo), `frontend/lib/triagem.ts` (removido), `frontend/lib/utils.ts` (+ `maskCep`), `frontend/components/ui/index.tsx` (+ `Stepper`/`SelecaoCard`/`ToggleSimNao`/`CheckboxGroup`), `frontend/app/(paciente)/portal/solicitar/page.tsx` (reescrito) e `_components/{EtapaEspecialidade,EtapaIdentificacao,EtapaGrupoPerguntas,PerguntaField,EtapaRevisao}.tsx` (novos), `frontend/app/(profissional)/anamneses/page.tsx` (`white-space: pre-line` no resumo).
+
+---
+
 ## 2026-08-18 — Base do frontend: autenticação e as 3 áreas de acesso
 
 **Plano original:** `base-frontend-auth-e-areas.md` (removido)

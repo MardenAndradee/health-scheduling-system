@@ -26,12 +26,12 @@ frontend/app/
 ├── (profissional)/                # guard: PROFISSIONAL | ADMIN — AppShell (sidebar/drawer)
 │   ├── dashboard/page.tsx
 │   ├── pacientes/page.tsx
-│   ├── anamneses/page.tsx           # fila de triagem acionável — "Agendar" cria o agendamento direto do item
+│   ├── anamneses/page.tsx           # fila de triagem (toggle Fila/Lista completa) — "Agendar" cria o agendamento já vinculado à anamnese
 │   ├── agendamentos/page.tsx        # toggle "Minha agenda" (profissional) / "Todos" (CRUD completo) + registrar consulta
 │   └── consultas/page.tsx
 ├── (paciente)/portal/              # guard: PACIENTE — mobile-first, PortalShell (header + nav inferior)
 │   ├── inicio/page.tsx              # próximo atendimento + atalho + últimas consultas
-│   ├── solicitar/page.tsx           # questionário de anamnese em 4 passos → lib/triagem.ts
+│   ├── solicitar/page.tsx           # wizard dinâmico: especialidade → identificação → perguntas da especialidade → revisão (lib/especialidades/)
 │   ├── agendamentos/page.tsx        # status dos agendamentos, com texto explicativo por status
 │   └── consultas/page.tsx           # diagnóstico e prescrição recebidos
 └── (admin)/admin/                   # guard: ADMIN — AppShell
@@ -52,17 +52,20 @@ frontend/app/
 - `components/layout/AppShell.tsx` — área do profissional/admin. Sensível ao papel do usuário logado: os links "Painel Admin", "Profissionais" e "Usuários" (→ `/admin/**`) só aparecem para `ADMIN`. O destaque de rota ativa usa `pathname === href || pathname.startsWith(href + '/')` — só `startsWith(href)` faria `/admin` ficar destacado junto com `/admin/profissionais` (prefixo em comum). Rodapé com nome/papel do usuário e logout. Mobile vira header fixo com hambúrguer + overlay.
 - `components/layout/PortalShell.tsx` — área do paciente. Header simples (logo + Sair) e navegação inferior fixa com 4 destinos (Início, Solicitar, Agenda, Consultas), pensada para uso no celular por alguém sem familiaridade com o sistema.
 
-### Triagem no portal (`lib/triagem.ts`)
+### Anamnese por especialidade no portal (`lib/especialidades/`)
 
-Isolado num único arquivo, como decidido no plano — fácil de remover quando o backend assumir o cálculo:
+O paciente escolhe um tipo de atendimento (Clínico Geral, Enfermagem, Odontologia, Psicologia, Nutrição) em cards com ícone/descrição, preenche um bloco fixo de identificação (nome, idade, sexo, CPF, naturalidade, cor/raça, endereço completo com busca automática por CEP via ViaCEP, celular, queixa principal) e depois um questionário específico da especialidade, organizado em grupos com peso clínico (`lib/especialidades/config.ts`). Perguntas/especialidades são só configuração — adicionar, remover ou reescrever uma pergunta não exige tocar em nenhum componente (`_components/PerguntaField.tsx` decide o controle certo — sim/não, escala 0–10, checkbox múltiplo ou texto livre — só olhando o `tipo` da pergunta).
 
-- `calcularNivelUrgencia(respostas)` — pontuação simples por fator de risco (dor, falta de ar, sangramento, febre, idade, comorbidades, tempo desde o início dos sintomas) que resulta num `NivelUrgencia`. **Não é uma classificação clínica validada** — é o que popula a fila do profissional até existir uma regra real no backend.
-- `formatarResumoTriagem(respostas)` — serializa as respostas estruturadas em texto legível, gravado em `Anamnese.observacoes` (o backend ainda não tem colunas próprias para idade/comorbidades/etc.).
-- A tela `(paciente)/portal/solicitar/page.tsx` é um wizard de 4 passos (sobre você → sintomas → sinais de alerta → revisão) — não mostra o nível calculado ao paciente, só confirma o envio; quem vê e pode ajustar o nível é o profissional, na fila de triagem.
+- `lib/especialidades/tipos.ts` — tipos do modelo config-driven de perguntas, do formulário de identificação e do estado de respostas.
+- `lib/especialidades/config.ts` — os dados das 5 especialidades; é este arquivo que muda quando o texto das perguntas for revisado.
+- `lib/especialidades/pontuacao.ts` — `calcularNivelUrgenciaEspecialidade()`, heurística provisória e genérica (lê peso/tipo de cada pergunta, nunca hardcoda nome de especialidade) que resulta num `NivelUrgencia`. **Não é uma classificação clínica validada** — é o que popula a fila do profissional até existir a regra manual real no backend; o nível pode ser corrigido depois em "Editar", na fila de triagem.
+- `lib/especialidades/resumo.ts` — serializa identificação + especialidade + respostas em texto legível, gravado em `Anamnese.observacoes` (multi-linha, renderizado com `white-space: pre-line` na fila); `Anamnese.sintomas` recebe `"[Especialidade] queixa principal"`.
+- `hooks/useCepLookup.ts` — busca de endereço por CEP (ViaCEP, sem chave), com estado de carregamento/erro e guarda contra resposta obsoleta; os campos preenchidos automaticamente continuam editáveis.
+- A tela não mostra o nível calculado ao paciente, só confirma o envio; quem vê e pode ajustar o nível é o profissional, na fila de triagem.
 
 ### Fila de triagem acionável e agenda do profissional
 
-- `(profissional)/anamneses/page.tsx` — cada item da fila tem um botão **Agendar**, que abre um modal (profissional + data/hora + observações) e cria o agendamento direto, sem sair da tela. Como `Anamnese` não tem um campo de status (nenhuma FK para `Agendamento` no modelo de dados — ver [Modelo de Dados](03-modelo-de-dados.md)), o item marcado como agendado não desaparece da fila; fica só um indicador "✓ Agendado nesta sessão", válido apenas durante a sessão atual do navegador (estado local, não persistido).
+- `(profissional)/anamneses/page.tsx` — toggle **Fila de triagem / Lista completa**. Cada item da fila tem um botão **Agendar**, que abre um modal (profissional + data/hora + observações) e cria o agendamento já vinculado à anamnese (`Agendamento.anamnese`, FK opcional). A fila (`GET /anamneses/triagem`) passa a excluir anamneses que já têm agendamento vinculado — o item some da fila de verdade, persistido no backend, não é mais um indicador local de sessão.
 - `(profissional)/agendamentos/page.tsx` — ganhou um toggle **Minha agenda / Todos os agendamentos**, visível só para `PROFISSIONAL` (`ADMIN` só vê "Todos", já que não é dono de uma agenda pessoal). "Minha agenda" busca `GET /agendamentos/profissional/{id}` do usuário logado, mostra a anamnese mais recente de cada paciente ao lado (`GET /anamneses/paciente/{id}`, uma chamada por paciente único da agenda) e oferece **Registrar consulta** em qualquer agendamento ainda aberto (`AGENDADO`/`CONFIRMADO`/`EM_ATENDIMENTO`). Registrar consulta cria a `Consulta` e, na sequência, marca o agendamento como `CONCLUIDO` — duas chamadas em série, sem endpoint único para isso no backend.
 
 ### Dashboard (`(profissional)/dashboard/page.tsx`)
@@ -79,7 +82,7 @@ Três gráficos Recharts somados aos cards e listas já existentes:
 
 ### Design system (`components/ui/index.tsx`)
 
-`PageHeader`, `Card`, `Button`, `Input`, `Select`, `Textarea`, `Checkbox` (Etapa 2, questionário de triagem), `Modal`, `Empty`, `Loading`, `Toast`, `StatCard`, `UrgenciaBadge`, `StatusBadge`.
+`PageHeader`, `Card`, `Button`, `Input`, `Select`, `Textarea`, `Checkbox`, `Modal`, `Empty`, `Loading`, `Toast`, `StatCard`, `UrgenciaBadge`, `StatusBadge`, `Stepper` (progresso de wizard com total dinâmico), `SelecaoCard` (card de escolha ícone + título + descrição), `ToggleSimNao`, `CheckboxGroup`.
 
 ## Cliente de API (`lib/api.ts`)
 
@@ -107,6 +110,5 @@ Espelham as entidades e enums do backend, mais os tipos de autenticação: `Logi
 
 1. **Recuperar senha é só visual.** Botão desabilitado, sem chamada de API — decisão explícita até o backend ganhar esse fluxo.
 2. **Guarda de papel é UX, não segurança.** O backend continua sem restringir um `PACIENTE` aos próprios dados (ver [Autenticação e Autorização](05-autenticacao-autorizacao.md#lacunas-conhecidas)) — o frontend não cria a ilusão de que isso está resolvido.
-3. **Cálculo de urgência é provisório e roda no cliente** (`lib/triagem.ts`) — não é validado clinicamente, é só o que permite a fila de triagem funcionar antes do backend ter essa regra.
-4. **"Agendado nesta sessão" na fila de triagem não persiste.** Sem um campo de status em `Anamnese` no backend, não há como saber (entre sessões, ou para outro atendente) quais itens da fila já viraram agendamento — só um lembrete visual local, que some ao recarregar a página.
-5. Existem arquivos de configuração duplicados não usados pelo build padrão (`next.config copy.ts`, `tsconfig copy.json`) — provavelmente rascunhos; vale revisar/remover quando o time decidir a configuração definitiva.
+3. **Cálculo de urgência é provisório e roda no cliente** (`lib/especialidades/pontuacao.ts`) — não é validado clinicamente, é só o que permite a fila de triagem funcionar antes do backend ter a regra manual definitiva.
+4. Existem arquivos de configuração duplicados não usados pelo build padrão (`next.config copy.ts`, `tsconfig copy.json`) — provavelmente rascunhos; vale revisar/remover quando o time decidir a configuração definitiva.

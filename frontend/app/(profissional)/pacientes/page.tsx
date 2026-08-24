@@ -6,7 +6,8 @@ import { Paciente, PacienteForm } from '@/types'
 import {
   PageHeader, Card, Button, Input, Modal, Empty, Loading, Toast,
 } from '@/components/ui'
-import { apenasDigitos, formatDate, maskCpf, maskTelefone, mensagemErro } from '@/lib/utils'
+import { EnderecoFields, EnderecoValor, enderecoVazio } from '@/components/forms/EnderecoFields'
+import { apenasDigitos, formatDate, formatarEnderecoCompleto, maskCpf, maskTelefone, mensagemErro } from '@/lib/utils'
 
 const empty: PacienteForm = {
   nome: '', email: '', senha: '', cpf: '',
@@ -20,6 +21,7 @@ export default function PacientesPage() {
   const [modal, setModal] = useState<'criar' | 'editar' | null>(null)
   const [selected, setSelected] = useState<Paciente | null>(null)
   const [form, setForm] = useState<PacienteForm>(empty)
+  const [endereco, setEndereco] = useState<EnderecoValor>(enderecoVazio)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
 
@@ -35,7 +37,7 @@ export default function PacientesPage() {
     setTimeout(() => setToast(null), 3000)
   }
 
-  const openCriar = () => { setForm(empty); setModal('criar') }
+  const openCriar = () => { setForm(empty); setEndereco(enderecoVazio); setModal('criar') }
   const openEditar = (p: Paciente) => {
     setSelected(p)
     setForm({
@@ -44,17 +46,25 @@ export default function PacientesPage() {
       endereco: p.endereco || '',
       dataNascimento: p.dataNascimento,
     })
+    // O endereço já cadastrado é uma única string opaca (cadastros antigos ou
+    // sem CEP estruturado) — cai como ponto de partida no campo "Endereço" e
+    // os demais campos ficam em branco, editáveis (ex.: buscando o CEP de novo).
+    setEndereco({ ...enderecoVazio, endereco: p.endereco || '' })
     setModal('editar')
   }
 
+  const setCampoEndereco = <K extends keyof EnderecoValor>(campo: K) => (valor: EnderecoValor[K]) =>
+    setEndereco(prev => ({ ...prev, [campo]: valor }))
+
   const handleSave = async () => {
     setSaving(true)
+    const dados = { ...form, endereco: formatarEnderecoCompleto(endereco) }
     try {
       if (modal === 'criar') {
-        await pacientesApi.criar(form)
+        await pacientesApi.criar(dados)
         showToast('Paciente cadastrado com sucesso!', 'success')
       } else if (selected) {
-        await pacientesApi.atualizar(selected.id, form)
+        await pacientesApi.atualizar(selected.id, dados)
         showToast('Paciente atualizado!', 'success')
       }
       setModal(null)
@@ -177,7 +187,7 @@ export default function PacientesPage() {
                 placeholder="(00) 00000-0000"
               />
             </div>
-            <Input label="Endereço" value={form.endereco} onChange={f('endereco')} />
+            <EnderecoFields valor={endereco} onChange={setCampoEndereco} />
             <Input label="Data de nascimento" value={form.dataNascimento} onChange={f('dataNascimento')} type="date" required />
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
               <Button variant="ghost" onClick={() => setModal(null)}>Cancelar</Button>

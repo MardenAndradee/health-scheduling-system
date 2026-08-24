@@ -1,7 +1,7 @@
 'use client'
 
 import { ReactNode, useState } from 'react'
-import { X } from 'lucide-react'
+import { X, type LucideIcon } from 'lucide-react'
 import { urgenciaConfig, statusConfig } from '@/lib/utils'
 import { NivelUrgencia, StatusAgendamento } from '@/types'
 
@@ -397,5 +397,113 @@ export function StatCard({ label, value, sub, accent }: {
       </div>
       {sub && <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>{sub}</div>}
     </Card>
+  )
+}
+
+// ─── Stepper ──────────────────────────────────────────────────────────────────
+export function Stepper({ total, atual }: { total: number; atual: number }) {
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      {Array.from({ length: total }).map((_, i) => (
+        <div key={i} style={{
+          flex: 1, height: 4, borderRadius: 2,
+          background: i < atual ? 'var(--accent)' : 'var(--border)',
+        }} />
+      ))}
+    </div>
+  )
+}
+
+// ─── Card de seleção (ícone + título + descrição) ──────────────────────────────
+export function SelecaoCard({ icone: Icon, titulo, descricao, selecionado, onClick }: {
+  icone: LucideIcon
+  titulo: string
+  descricao: string
+  selecionado: boolean
+  onClick: () => void
+}) {
+  const [hover, setHover] = useState(false)
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left',
+        padding: 16, borderRadius: 'var(--radius-lg)', width: '100%',
+        background: selecionado ? 'var(--accent-soft)' : hover ? 'var(--surface2)' : 'var(--surface)',
+        border: `1.5px solid ${selecionado ? 'var(--accent)' : 'var(--border)'}`,
+        cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+        transition: 'background .15s, border-color .15s',
+      }}
+    >
+      <div style={{
+        width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+        background: selecionado ? 'var(--accent)' : 'var(--surface2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: selecionado ? '#fff' : 'var(--accent)',
+      }}>
+        <Icon size={19} strokeWidth={2} aria-hidden />
+      </div>
+      <div>
+        <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--text)', marginBottom: 3 }}>{titulo}</div>
+        <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5 }}>{descricao}</div>
+      </div>
+    </button>
+  )
+}
+
+// ─── Toggle Sim/Não ─────────────────────────────────────────────────────────────
+export function ToggleSimNao({ label, value, onChange }: {
+  label: string
+  value: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: 13.5, color: 'var(--text)', lineHeight: 1.5 }}>{label}</div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {[{ v: true, texto: 'Sim' }, { v: false, texto: 'Não' }].map(opt => (
+          <button
+            key={opt.texto}
+            type="button"
+            onClick={() => onChange(opt.v)}
+            style={{
+              flex: 1, padding: '10px 0', borderRadius: 'var(--radius)',
+              border: `1px solid ${value === opt.v ? 'var(--accent)' : 'var(--border)'}`,
+              background: value === opt.v ? 'var(--accent)' : 'var(--surface)',
+              color: value === opt.v ? '#fff' : 'var(--text)',
+              fontFamily: 'Inter, sans-serif', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+              transition: 'background .15s, border-color .15s',
+            }}
+          >
+            {opt.texto}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Grupo de checkboxes ──────────────────────────────────────────────────────
+export function CheckboxGroup({ label, opcoes, selecionados, onChange }: {
+  label: string
+  opcoes: { id: string; label: string }[]
+  selecionados: string[]
+  onChange: (selecionados: string[]) => void
+}) {
+  const alternar = (id: string) => {
+    onChange(selecionados.includes(id) ? selecionados.filter(s => s !== id) : [...selecionados, id])
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: 13.5, color: 'var(--text)', lineHeight: 1.5 }}>{label}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {opcoes.map(o => (
+          <Checkbox key={o.id} label={o.label} checked={selecionados.includes(o.id)} onChange={() => alternar(o.id)} />
+        ))}
+      </div>
+    </div>
   )
 }
