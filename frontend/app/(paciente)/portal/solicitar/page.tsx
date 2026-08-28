@@ -7,7 +7,6 @@ import { anamnesesApi, pacientesApi } from '@/lib/api'
 import { Button, Card, Stepper } from '@/components/ui'
 import { apenasDigitos, mensagemErro } from '@/lib/utils'
 import { buscarEspecialidade } from '@/lib/especialidades/config'
-import { calcularNivelUrgenciaEspecialidade } from '@/lib/especialidades/pontuacao'
 import { formatarQueixa, formatarResumoAnamnese } from '@/lib/especialidades/resumo'
 import {
   Especialidade, EspecialidadeId, IdentificacaoForm, RespostasEspecialidade, RespostaValor,
@@ -125,13 +124,13 @@ export default function SolicitarAtendimentoPage() {
     setEnviando(true)
     setErro('')
     try {
-      const idade = Number(identificacao.idade)
-      const nivel = calcularNivelUrgenciaEspecialidade(especialidadeAtual, respostas, idade)
       await anamnesesApi.criar({
         sintomas: formatarQueixa(especialidadeAtual, identificacao.queixaPrincipal),
-        observacoes: formatarResumoAnamnese(identificacao, especialidadeAtual, respostas, nivel),
-        nivelUrgencia: nivel,
+        observacoes: formatarResumoAnamnese(identificacao, especialidadeAtual, respostas),
         pacienteId: usuario.id,
+        especialidadeId: especialidadeAtual.id,
+        idade: Number(identificacao.idade),
+        respostas,
       })
       setEnviado(true)
     } catch (e) {

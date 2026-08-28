@@ -1,3 +1,5 @@
+import { RespostasEspecialidade } from '@/lib/especialidades/tipos'
+
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 export type TipoUsuario = 'ADMIN' | 'PACIENTE' | 'PROFISSIONAL'
@@ -87,8 +89,13 @@ export interface ProfissionalForm {
 export interface AnamneseForm {
   sintomas: string
   observacoes: string
-  nivelUrgencia: NivelUrgencia
+  // Obrigatório só no fluxo manual do profissional; no wizard do paciente,
+  // quem define é o backend a partir de especialidadeId/idade/respostas.
+  nivelUrgencia?: NivelUrgencia
   pacienteId: number
+  especialidadeId?: string
+  idade?: number
+  respostas?: RespostasEspecialidade
 }
 
 export interface AgendamentoForm {

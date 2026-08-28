@@ -128,15 +128,47 @@ CRUD genérico sobre a tabela base `usuarios` (todos os tipos).
 | `PUT` | `/anamneses/{id}` | Atualiza | autenticado |
 | `DELETE` | `/anamneses/{id}` | Remove | autenticado |
 
-`AnamneseDTO`: `{ sintomas, observacoes, nivelUrgencia, pacienteId }`.
+`AnamneseDTO`: `{ sintomas, observacoes, nivelUrgencia?, pacienteId, especialidadeId?, idade?, respostas? }`.
+
+`nivelUrgencia` é opcional e a API aceita dois caminhos mutuamente exclusivos
+para defini-lo — resolvidos em `AnamneseService.resolverNivelUrgencia`:
+
+- **Manual** (usado hoje pela área do profissional): envia `nivelUrgencia`
+  diretamente, sem `especialidadeId`/`respostas`.
+- **Calculado a partir da triagem por especialidade** (usado pelo wizard do
+  paciente): envia `especialidadeId` + `idade` + `respostas`
+  (`Map<grupoId, Map<perguntaId, valor>>`, espelhando as perguntas de
+  `frontend/lib/especialidades/config.ts`) e **não** envia `nivelUrgencia` —
+  o backend calcula via `AnamneseService.defineUrgencia`, que despacha para
+  um método por especialidade (`calcularUrgencia<Especialidade>`). Os pesos
+  de cada especialidade ainda são um placeholder (todos retornam `VERDE`) até
+  serem implementados.
+
+Se nenhum dos dois vier preenchido, a API responde `400`
+(`RegraDeNegocioException`).
 
 ```json
-// POST /anamneses — exemplo
+// POST /anamneses — exemplo (fluxo manual)
 {
   "sintomas": "Dor forte no peito e falta de ar",
   "observacoes": "Paciente relata início súbito há 20 minutos",
   "nivelUrgencia": "VERMELHO",
   "pacienteId": 7
+}
+```
+
+```json
+// POST /anamneses — exemplo (wizard do paciente, nível calculado no backend)
+{
+  "sintomas": "[Clínico Geral] dor forte no peito",
+  "observacoes": "...",
+  "pacienteId": 7,
+  "especialidadeId": "clinico_geral",
+  "idade": 45,
+  "respostas": {
+    "sintomas_alarme": { "sinais_alarme": ["dor_peito"] },
+    "intensidade_evolucao": { "intensidade_dor": 9, "dor_subita": true, "febre_vomitos": [] }
+  }
 }
 ```
 

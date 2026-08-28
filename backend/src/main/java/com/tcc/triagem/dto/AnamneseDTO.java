@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -21,11 +22,16 @@ public class AnamneseDTO {
 
     private String observacoes;
 
-    @NotNull(message = "Nível de urgência é obrigatório")
     private NivelUrgencia nivelUrgencia;
 
     private LocalDateTime dataRegistro;
 
     @NotNull(message = "ID do paciente é obrigatório")
     private Long pacienteId;
+
+    private String especialidadeId;
+
+    private Integer idade;
+
+    private Map<String, Map<String, Object>> respostas;
 }

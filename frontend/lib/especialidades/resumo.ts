@@ -1,5 +1,4 @@
-import { NivelUrgencia } from '@/types'
-import { urgenciaConfig, maskCep, maskCpf, maskTelefone } from '@/lib/utils'
+import { maskCep, maskCpf, maskTelefone } from '@/lib/utils'
 import { Especialidade, IdentificacaoForm, Pergunta, RespostasEspecialidade, RespostaValor } from './tipos'
 
 const rotuloSexo: Record<string, string> = { masculino: 'Masculino', feminino: 'Feminino' }
@@ -59,7 +58,6 @@ export function formatarResumoAnamnese(
   identificacao: IdentificacaoForm,
   especialidade: Especialidade,
   respostas: RespostasEspecialidade,
-  nivelCalculado: NivelUrgencia,
 ): string {
   const blocos: string[] = []
 
@@ -75,10 +73,6 @@ export function formatarResumoAnamnese(
     }
   }
   blocos.push(linhasAnamnese.join('\n'))
-
-  blocos.push(
-    `Nível de urgência calculado automaticamente (provisório): ${urgenciaConfig[nivelCalculado].label.toUpperCase()} — sujeito a confirmação da equipe.`
-  )
 
   return blocos.join('\n\n')
 }

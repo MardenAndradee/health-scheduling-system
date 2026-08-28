@@ -4,6 +4,54 @@ Histórico centralizado do que já foi planejado e implementado no projeto. Cada
 
 ---
 
+## 2026-08-27 — Definição de `nivelUrgencia` da Anamnese movida para o backend
+
+**Plano original:** `mover-definicao-urgencia-anamnese-backend.md` (removido)
+
+`AnamneseDTO` ganhou `especialidadeId`, `idade` e `respostas`
+(`Map<grupoId, Map<perguntaId, valor>>`), e `nivelUrgencia` deixou de ser
+obrigatório. `AnamneseService` ganhou `resolverNivelUrgencia(dto)`, chamado
+por `criar`/`atualizar`: usa `defineUrgencia(dto)` quando
+`especialidadeId`+`respostas` vêm preenchidos (fluxo do wizard do paciente),
+usa `dto.getNivelUrgencia()` quando só ele vem preenchido (fluxo manual do
+profissional, inalterado), e lança `RegraDeNegocioException` (400) se nenhum
+dos dois vier. `defineUrgencia` despacha por `switch` em `especialidadeId`
+para um método privado por especialidade (`calcularUrgencia<Especialidade>`),
+cada um extraindo as respostas em variáveis já tipadas/nomeadas (via helpers
+`respostaSimNao`/`respostaEscala`/`respostaCheckbox`/`valorResposta`) — a
+lógica de peso em si ficou fora do escopo deste plano, por combinação
+explícita com o usuário (ele mesmo está escrevendo os pesos, começando pelo
+`clinico_geral`, em paralelo à execução deste plano).
+
+No frontend, o wizard (`(paciente)/portal/solicitar/page.tsx`) parou de
+calcular o nível localmente (`lib/especialidades/pontuacao.ts`) e passou a
+enviar `especialidadeId`/`idade`/`respostas` brutos; `resumo.ts` não embute
+mais a frase de nível "provisório" no texto de `observacoes`, já que quem
+decide agora é o backend. `pontuacao.ts` ficou sem nenhuma referência no
+código mas não foi apagado (decisão explícita, fora de escopo).
+
+Corrigido de passagem: `AnamneseService.java` tinha um stub quebrado
+(`defineUrgencia` sem corpo, não commitado) que impedia o backend de
+compilar — o método completo resolve isso.
+
+Verificado com `cd backend && ./mvnw -q compile` (compila limpo) e via
+`curl` direto em `POST /anamneses` rodando contra Postgres local, cobrindo
+os três caminhos: `especialidadeId`+`respostas` → salva com `VERDE`
+(placeholder); só `nivelUrgencia` → mantém o fluxo do profissional; nenhum
+dos dois → `400`. Frontend validado com `tsc --noEmit` e `eslint` (ambos
+limpos). **Não foi possível validar o wizard em navegador real** — a
+extensão Claude in Chrome não estava conectada nesta sessão; o paciente de
+teste criado para esse passo foi removido do banco.
+
+**Arquivos principais alterados:** `backend/.../dto/AnamneseDTO.java`,
+`backend/.../service/AnamneseService.java`, `frontend/types/index.ts`,
+`frontend/lib/especialidades/resumo.ts`,
+`frontend/app/(paciente)/portal/solicitar/page.tsx`,
+`frontend/app/(profissional)/anamneses/page.tsx` (ajuste pontual de tipo),
+`docs/04-api-rest.md`, `docs/06-frontend.md`.
+
+---
+
 ## 2026-08-24 — Solicitar atendimento: escolha de especialidade + anamnese por tipo
 
 **Plano original:** `solicitar-atendimento-especialidades.md` (removido)

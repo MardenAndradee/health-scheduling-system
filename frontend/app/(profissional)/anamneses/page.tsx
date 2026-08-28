@@ -188,7 +188,7 @@ export default function AnamnesesPage() {
               placeholder="Descreva os sintomas relatados pelo paciente..." rows={3} />
             <Select
               label="Nível de urgência"
-              value={form.nivelUrgencia}
+              value={form.nivelUrgencia ?? 'VERDE'}
               onChange={f('nivelUrgencia')}
               options={urgenciaOpts}
               required
