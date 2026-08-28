@@ -81,6 +81,14 @@ public class AnamneseService {
 
         int peso = 0;
 
+        if (idade != null && idade >= 65) {
+            peso = Math.max(peso, 7);
+        }
+
+        if (idade != null && idade < 12) {
+            peso = Math.max(peso, 7);
+        }
+
         if (sinaisAlarme != null && !sinaisAlarme.isEmpty()) {
             for (String sinal : sinaisAlarme) {
                 switch (sinal) {
@@ -139,42 +147,20 @@ public class AnamneseService {
             peso = Math.max(peso, 1);
         }
 
-        switch (peso) {
-            case 0,1,2 -> {
-                return NivelUrgencia.VERDE;
-            }
-            case 3,4 -> {
-                return NivelUrgencia.AZUL;
-            }
-            case 5,6 -> {
-                return NivelUrgencia.AMARELO;
-            }
-            case 7,8,9 -> {
-                return NivelUrgencia.LARANJA;
-            }
-            case 10 -> {
-                return NivelUrgencia.VERMELHO;
-            }
-        }
-
-        // TODO: aplicar pesos e definir o NivelUrgencia a partir das variáveis acima.
-        return NivelUrgencia.VERDE;
+        return calculaPeso(peso);
     }
 
     private NivelUrgencia calcularUrgenciaEnfermagem(AnamneseDTO dto) {
-        // Grupo "urgencias_sinais_agudos" (peso 8-10)
         List<String> sinaisAgudos = respostaCheckbox(dto, "urgencias_sinais_agudos", "sinais_agudos");
         // opções: sangramento_ativo, febre_alta_agora, suspeita_dengue_dor_abdominal
-
-        // Grupo "avaliacao_lesoes" (peso 4-7)
-        boolean precisaCurativo = respostaSimNao(dto, "avaliacao_lesoes", "precisa_curativo");
+        List<String> tipoProcedimento = respostaCheckbox(dto, "procedimentos_testes", "tipo_procedimento");
+        // opções: vacinacao_rotina, retirada_pontos, afericao_pressao_rotina, teste_rapido_assintomatico
         List<String> caracteristicasFerida = respostaCheckbox(dto, "avaliacao_lesoes", "caracteristicas_ferida");
         // opções: secrecao_purulenta, odor_forte, calor_local, mordida_trauma_recente
 
-        // Grupo "procedimentos_testes" (peso 1-3)
-        List<String> tipoProcedimento = respostaCheckbox(dto, "procedimentos_testes", "tipo_procedimento");
-        // opções: vacinacao_rotina, retirada_pontos, afericao_pressao_rotina, teste_rapido_assintomatico
-
+        boolean precisaCurativo = respostaSimNao(dto, "avaliacao_lesoes", "precisa_curativo");
+        
+        
         Integer idade = dto.getIdade();
 
         int peso = 0;
@@ -215,41 +201,18 @@ public class AnamneseService {
             }
         }
 
-        switch (peso) {
-            case 0,1,2 -> {
-                return NivelUrgencia.VERDE;
-            }
-            case 3,4 -> {
-                return NivelUrgencia.AZUL;
-            }
-            case 5,6 -> {
-                return NivelUrgencia.AMARELO;
-            }
-            case 7,8,9 -> {
-                return NivelUrgencia.LARANJA;
-            }
-            case 10 -> {
-                return NivelUrgencia.VERMELHO;
-            }
-        }
-
-        // TODO: aplicar pesos e definir o NivelUrgencia a partir das variáveis acima.
-        return NivelUrgencia.VERDE;
+        return calculaPeso(peso);
     }
 
     private NivelUrgencia calcularUrgenciaOdontologia(AnamneseDTO dto) {
-        // Grupo "emergencias_trauma" (peso 8-10)
-        boolean edemaRostoPescoco = respostaSimNao(dto, "emergencias_trauma", "edema_rosto_pescoco");
         List<String> dificuldades = respostaCheckbox(dto, "emergencias_trauma", "dificuldades");
         // opções: engolir, abrir_boca, respirar
-        boolean traumaFacialSangramento = respostaSimNao(dto, "emergencias_trauma", "trauma_facial_sangramento");
-
-        // Grupo "dor_intensa" (peso 6-7)
-        boolean dorPulsatilImpede = respostaSimNao(dto, "dor_intensa", "dor_pulsatil_impede");
-
-        // Grupo "procedimentos_eletivos" (peso 1-3)
         List<String> tipoProcedimentoOdonto = respostaCheckbox(dto, "procedimentos_eletivos", "tipo_procedimento_odonto");
         // opções: limpeza_profilaxia, restauracao_sem_dor, avaliacao_rotina, substituicao_restauracao
+
+        boolean edemaRostoPescoco = respostaSimNao(dto, "emergencias_trauma", "edema_rosto_pescoco");
+        boolean traumaFacialSangramento = respostaSimNao(dto, "emergencias_trauma", "trauma_facial_sangramento");
+        boolean dorPulsatilImpede = respostaSimNao(dto, "dor_intensa", "dor_pulsatil_impede");
 
         Integer idade = dto.getIdade();
 
@@ -288,42 +251,20 @@ public class AnamneseService {
             }
         }
 
-        switch (peso) {
-            case 0,1,2 -> {
-                return NivelUrgencia.VERDE;
-            }
-            case 3,4 -> {
-                return NivelUrgencia.AZUL;
-            }
-            case 5,6 -> {
-                return NivelUrgencia.AMARELO;
-            }
-            case 7,8,9 -> {
-                return NivelUrgencia.LARANJA;
-            }
-            case 10 -> {
-                return NivelUrgencia.VERMELHO;
-            }
-        }
-
-        // TODO: aplicar pesos e definir o NivelUrgencia a partir das variáveis acima.
-        return NivelUrgencia.VERDE;
+        return calculaPeso(peso);
     }
 
     private NivelUrgencia calcularUrgenciaPsicologia(AnamneseDTO dto) {
-        // Grupo "sinais_crise_grave" (peso 9-10)
-        boolean criseAgudaAnsiedade = respostaSimNao(dto, "sinais_crise_grave", "crise_aguda_ansiedade");
         List<String> riscoAutolesao = respostaCheckbox(dto, "sinais_crise_grave", "risco_autolesao");
         // opções: ideacao, planejamento, intencao
-
-        // Grupo "sofrimento_psiquico_intenso" (peso 6-8)
         List<String> sinaisSofrimento = respostaCheckbox(dto, "sofrimento_psiquico_intenso", "sinais_sofrimento");
         // opções: tristeza_incapacitante, perda_interesse, insonia_grave
-        boolean violenciaTraumaRecente = respostaSimNao(dto, "sofrimento_psiquico_intenso", "violencia_trauma_recente");
-
-        // Grupo "acompanhamento" (peso 1-4)
         List<String> situacaoAcompanhamento = respostaCheckbox(dto, "acompanhamento", "situacao_acompanhamento");
         // opções: diagnostico_previo, medicacao_psiquiatrica, primeiro_acolhimento
+
+        boolean violenciaTraumaRecente = respostaSimNao(dto, "sofrimento_psiquico_intenso", "violencia_trauma_recente");
+        boolean criseAgudaAnsiedade = respostaSimNao(dto, "sinais_crise_grave", "crise_aguda_ansiedade");
+       
 
         Integer idade = dto.getIdade();
 
@@ -367,41 +308,18 @@ public class AnamneseService {
             }
         }
 
-        switch (peso) {
-            case 0,1,2 -> {
-                return NivelUrgencia.VERDE;
-            }
-            case 3,4 -> {
-                return NivelUrgencia.AZUL;
-            }
-            case 5,6 -> {
-                return NivelUrgencia.AMARELO;
-            }
-            case 7,8,9 -> {
-                return NivelUrgencia.LARANJA;
-            }
-            case 10 -> {
-                return NivelUrgencia.VERMELHO;
-            }
-        }
-
-        // TODO: aplicar pesos e definir o NivelUrgencia a partir das variáveis acima.
-        return NivelUrgencia.VERDE;
+        return calculaPeso(peso);
     }
 
     private NivelUrgencia calcularUrgenciaNutricao(AnamneseDTO dto) {
-        // Grupo "descompensacao_metabolica" (peso 7-9)
         List<String> sinaisDescompensacao = respostaCheckbox(dto, "descompensacao_metabolica", "sinais_descompensacao");
         // opções: tonturas_frequentes, suor_frio, tremores, hipo_hiperglicemia
-        boolean perdaPesoRapida = respostaSimNao(dto, "descompensacao_metabolica", "perda_peso_rapida");
-
-        // Grupo "manejo_cronicos" (peso 4-6)
         List<String> condicoesCronicasNutricao = respostaCheckbox(dto, "manejo_cronicos", "condicoes_cronicas_nutricao");
         // opções: diabetes_nutricao, hipertensao_descontrolada, alteracao_renal
-
-        // Grupo "acompanhamento_eletivo" (peso 1-3)
         List<String> objetivoAcompanhamento = respostaCheckbox(dto, "acompanhamento_eletivo", "objetivo_acompanhamento");
         // opções: reeducacao_alimentar, perda_peso_gradual, orientacao_habitos_saudaveis
+
+        boolean perdaPesoRapida = respostaSimNao(dto, "descompensacao_metabolica", "perda_peso_rapida");
 
         Integer idade = dto.getIdade();
 
@@ -442,6 +360,10 @@ public class AnamneseService {
             }
         }
 
+        return calculaPeso(peso);
+    }
+
+    private NivelUrgencia calculaPeso(int peso) {
         switch (peso) {
             case 0,1,2 -> {
                 return NivelUrgencia.VERDE;
@@ -460,7 +382,6 @@ public class AnamneseService {
             }
         }
 
-        // TODO: aplicar pesos e definir o NivelUrgencia a partir das variáveis acima.
         return NivelUrgencia.VERDE;
     }
 
