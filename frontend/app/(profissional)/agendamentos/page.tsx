@@ -247,7 +247,7 @@ export default function AgendamentosPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
-                    {['Data/Hora', 'Paciente', 'Profissional', 'Status', 'Observações', ''].map(h => (
+                    {['Data/Hora', 'Paciente', 'Prioridade', 'Profissional', 'Status', 'Observações', ''].map(h => (
                       <th key={h} style={{
                         padding: '12px 16px', textAlign: 'left', whiteSpace: 'nowrap',
                         fontSize: 11.5, color: 'var(--muted)', fontWeight: 500, letterSpacing: '.05em',
@@ -266,6 +266,9 @@ export default function AgendamentosPage() {
                         {formatDateTime(a.dataConsulta)}
                       </td>
                       <td style={{ padding: '13px 16px', fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap' }}>{a.paciente?.nome || '—'}</td>
+                      <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
+                        {a.anamnese ? <UrgenciaBadge nivel={a.anamnese.nivelUrgencia} /> : <span style={{ fontSize: 13, color: 'var(--muted)' }}>—</span>}
+                      </td>
                       <td style={{ padding: '13px 16px', fontSize: 13, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{a.profissional?.nome || '—'}</td>
                       <td style={{ padding: '13px 16px' }}>
                         <select

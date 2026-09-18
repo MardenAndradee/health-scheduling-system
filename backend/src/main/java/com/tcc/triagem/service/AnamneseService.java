@@ -40,10 +40,18 @@ public class AnamneseService {
     }
 
     private NivelUrgencia resolverNivelUrgencia(AnamneseDTO dto) {
-        if (dto.getEspecialidadeId() != null && dto.getRespostas() != null) {
+        boolean informouCalculado = dto.getEspecialidadeId() != null && dto.getRespostas() != null;
+        boolean informouManual = dto.getNivelUrgencia() != null;
+
+        if (informouCalculado && informouManual) {
+            throw new RegraDeNegocioException(
+                    "Informe apenas um dos dois caminhos: nível de urgência manual ou "
+                            + "respostas da triagem por especialidade — nunca os dois.");
+        }
+        if (informouCalculado) {
             return defineUrgencia(dto);
         }
-        if (dto.getNivelUrgencia() != null) {
+        if (informouManual) {
             return dto.getNivelUrgencia();
         }
         throw new RegraDeNegocioException(

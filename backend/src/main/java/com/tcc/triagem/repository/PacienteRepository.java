@@ -17,6 +17,11 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
 
     List<Paciente> findByNomeContainingIgnoreCase(String nome);
 
-    @Query("SELECT p FROM Paciente p JOIN p.anamneses a WHERE a.nivelUrgencia = 'VERMELHO' OR a.nivelUrgencia = 'LARANJA' ORDER BY a.nivelUrgencia DESC")
+    // Ordenação por CASE (não pelo enum direto): EnumType.STRING ordenaria
+    // alfabeticamente, o que não reflete a gravidade real do Protocolo de
+    // Manchester (mesmo problema já corrigido em AnamneseRepository).
+    @Query("SELECT p FROM Paciente p JOIN p.anamneses a " +
+           "WHERE a.nivelUrgencia = 'VERMELHO' OR a.nivelUrgencia = 'LARANJA' " +
+           "ORDER BY CASE a.nivelUrgencia WHEN 'VERMELHO' THEN 1 WHEN 'LARANJA' THEN 2 END")
     List<Paciente> findPacientesUrgentes();
 }

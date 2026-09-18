@@ -193,7 +193,7 @@ Se nenhum dos dois vier preenchido, a API responde `400`
 | `PATCH` | `/agendamentos/{id}/status?status=CONFIRMADO` | Atualiza somente o status | autenticado |
 | `DELETE` | `/agendamentos/{id}` | Remove | autenticado |
 
-`AgendamentoDTO`: `{ dataConsulta, status, observacoes, pacienteId, profissionalId }` (`status` é opcional na criação; padrão `AGENDADO`).
+`AgendamentoDTO`: `{ dataConsulta, status, observacoes, pacienteId, profissionalId, anamneseId? }` (`status` é opcional na criação; padrão `AGENDADO`). `anamneseId` vincula o agendamento a uma anamnese de triagem (usado para exibir a prioridade/`UrgenciaBadge` na tela de agendamentos) — em `PUT`, só é alterado quando enviado explicitamente; omiti-lo preserva o vínculo já existente.
 
 ## Consultas — `/consultas`
 

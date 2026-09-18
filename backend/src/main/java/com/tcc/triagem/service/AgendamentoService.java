@@ -100,6 +100,15 @@ public class AgendamentoService {
         Profissional profissional = profissionalRepository.findById(dto.getProfissionalId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Profissional", dto.getProfissionalId()));
 
+        // Só reatribui a anamnese se vier explicitamente no DTO — o formulário de
+        // edição do frontend não expõe esse campo, então omiti-lo não pode apagar
+        // o vínculo já existente (ex.: perderia o selo de prioridade na tela).
+        if (dto.getAnamneseId() != null) {
+            Anamnese anamnese = anamneseRepository.findById(dto.getAnamneseId())
+                    .orElseThrow(() -> new RecursoNaoEncontradoException("Anamnese", dto.getAnamneseId()));
+            agendamento.setAnamnese(anamnese);
+        }
+
         agendamento.setDataConsulta(dto.getDataConsulta());
         agendamento.setStatus(dto.getStatus() != null ? dto.getStatus() : agendamento.getStatus());
         agendamento.setObservacoes(dto.getObservacoes());

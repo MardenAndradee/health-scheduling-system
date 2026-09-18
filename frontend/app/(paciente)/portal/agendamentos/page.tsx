@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { agendamentosApi, anamnesesApi } from '@/lib/api'
 import { Agendamento, Anamnese } from '@/types'
-import { Card, Loading, Empty, StatusBadge, PageHeader } from '@/components/ui'
+import { Card, Loading, Empty, StatusBadge, UrgenciaBadge, PageHeader } from '@/components/ui'
 import { formatDateTime, statusDescricaoPaciente } from '@/lib/utils'
 
 type ItemAgenda =
@@ -48,7 +48,7 @@ export default function PortalAgendamentosPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {itens.map(item => item.tipo === 'pendente' ? (
             <Card key={`pendente-${item.anamnese.id}`}>
-              <div style={{ marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', padding: '4px 11px',
                   borderRadius: 'var(--radius-full)', fontSize: 12.5, fontWeight: 600,
@@ -56,6 +56,7 @@ export default function PortalAgendamentosPage() {
                 }}>
                   Aguardando agendamento
                 </span>
+                <UrgenciaBadge nivel={item.anamnese.nivelUrgencia} />
               </div>
               <div style={{ fontSize: 13 }}>
                 Sua solicitação foi recebida e está aguardando avaliação da equipe para marcar a data.
@@ -70,6 +71,11 @@ export default function PortalAgendamentosPage() {
               <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}>
                 com {item.agendamento.profissional?.nome || '—'}
               </div>
+              {item.agendamento.anamnese && (
+                <div style={{ marginBottom: 6 }}>
+                  <UrgenciaBadge nivel={item.agendamento.anamnese.nivelUrgencia} />
+                </div>
+              )}
               <div style={{ fontSize: 13 }}>{statusDescricaoPaciente[item.agendamento.status]}</div>
             </Card>
           ))}
