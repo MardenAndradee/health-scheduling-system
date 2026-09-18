@@ -7,6 +7,7 @@
 - Tema **claro**, tipografia **Inter**, paleta de marca e de classificação de risco fixadas — ver [Design](08-design.md) para o sistema de tokens completo
 - **Recharts** — 3 gráficos na dashboard do profissional (donut de urgência, barras de status, linha de agendamentos por dia)
 - Sem biblioteca de data-fetching/estado global: cada página usa `useState` + `useEffect` e chama a API diretamente. Autenticação é a exceção — vive em Context (`AuthProvider`)
+- `next.config.ts` tem um `rewrites()` que repassa `/api/*` pro backend (destino configurável via `BACKEND_URL`) — existe pra fazer o cookie de sessão funcionar como "mesma origem" pro navegador, ver Autenticação abaixo
 - `AGENTS.md`/`CLAUDE.md` do frontend alertam que este projeto usa uma versão do Next.js com mudanças de API em relação ao conhecimento padrão — consulte `node_modules/next/dist/docs/` antes de alterar convenções de rota/build
 - PWA: `app/manifest.ts`, ícones gerados via `next/og` `ImageResponse` (`app/icon.tsx`, `app/apple-icon.tsx`, `app/icon-192/route.tsx`, `app/icon-512/route.tsx`) e um service worker mínimo (`public/sw.js`, registrado por `components/pwa/ServiceWorkerRegister.tsx`) que cacheia o app shell e não intercepta chamadas cross-origin (a API)
 
@@ -42,8 +43,8 @@ frontend/app/
 
 ### Autenticação (`lib/auth.ts`, `components/auth/`)
 
-- `lib/auth.ts` — leitura/escrita da sessão (token + dados do usuário) em `localStorage`, e `rotaInicialPorPapel()` (PACIENTE → `/portal/inicio`, demais → `/dashboard`).
-- `components/auth/AuthProvider.tsx` — contexto client-side (`useAuth()`) com `usuario`, `carregando`, `login()`, `registrar()`, `logout()`. Envolve toda a aplicação a partir do `app/layout.tsx`. `registrar()` encadeia `pacientesApi.criar()` (cria um `Paciente` de verdade) seguido de `authApi.login()` — `POST /pacientes` não retorna token, então o login é uma segunda chamada.
+- `lib/auth.ts` — leitura/escrita em `localStorage` só dos dados de exibição do usuário (id/nome/email/tipoUsuario), e `rotaInicialPorPapel()` (PACIENTE → `/portal/inicio`, demais → `/dashboard`). **O token não passa mais por aqui** — vive num cookie `HttpOnly` definido pelo backend (`Set-Cookie` de `/auth/login`/`/auth/registrar`), que este JavaScript nunca consegue ler; o navegador anexa esse cookie sozinho em toda chamada, via `lib/api.ts`. Ver [Autenticação e Autorização](05-autenticacao-autorizacao.md).
+- `components/auth/AuthProvider.tsx` — contexto client-side (`useAuth()`) com `usuario`, `carregando`, `login()`, `registrar()`, `logout()` (assíncrono agora — precisa chamar `POST /auth/logout` pra limpar o cookie no servidor, já que `HttpOnly` não pode ser apagado via JavaScript). Envolve toda a aplicação a partir do `app/layout.tsx`. `registrar()` encadeia `pacientesApi.criar()` (cria um `Paciente` de verdade) seguido de `authApi.login()` — `POST /pacientes` não retorna token, então o login é uma segunda chamada. A hidratação na montagem é otimista: confia no `usuario` salvo (o cookie não dá pra conferir do lado do cliente) e deixa a primeira chamada de API real corrigir via 401 se a sessão não for mais válida.
 - `components/auth/Guard.tsx` — protege um route group por papel (`<Guard papeis={['ADMIN']}>`). Mostra `Loading` enquanto a sessão carrega, redireciona ao `/login` se não autenticado, e renderiza uma tela "Acesso negado" (com botão Voltar) se o papel não bate — sem 403 silencioso nem vazamento de conteúdo protegido.
 - `hooks/useMediaQuery.ts` — usado pelo `AppShell` para alternar entre sidebar fixa (desktop, ≥768px) e header com menu overlay (mobile).
 
@@ -88,13 +89,14 @@ Três gráficos Recharts somados aos cards e listas já existentes:
 
 Módulo único com todas as chamadas HTTP, organizadas por recurso (`usuariosApi`, `pacientesApi`, `profissionaisApi`, `anamnesesApi`, `agendamentosApi`, `consultasApi`, `authApi`). Todos usam a função interna `request<T>()`, que:
 
-- Prefixa a URL com `NEXT_PUBLIC_API_URL` (padrão `http://localhost:8080/api`).
-- Injeta `Authorization: Bearer <token>` automaticamente quando há sessão ativa (via `lib/auth.ts`).
-- Em `401`, limpa a sessão e redireciona para `/login`.
+- Chama sempre um caminho relativo (`/api/...`) — passa pelo `rewrites()` do `next.config.ts`, nunca direto pro backend. Precisa ser mesma origem pro cookie de sessão funcionar.
+- Manda `credentials: 'same-origin'` explicitamente (não `'include'` — falha fechado se `BASE_URL` algum dia apontar pra fora, em vez de tentar mandar o cookie cross-origin).
+- Não injeta mais `Authorization` — o navegador já manda o cookie `HttpOnly` sozinho.
+- Em `401`, limpa a sessão local (`limparUsuario()`) e redireciona para `/login`.
 - Em outro erro HTTP, lê `{ mensagem }` do corpo de erro padronizado do backend (ver [API REST](04-api-rest.md#formato-padrão-de-erro)) e lança um `Error(mensagem)`.
 - Trata `204 No Content` retornando `undefined`.
 
-`authApi` só expõe `login` — `registrar` foi removido depois que o cadastro passou a usar `pacientesApi.criar()` diretamente (ver acima).
+`authApi` expõe `login` e `logout` — `registrar` foi removido depois que o cadastro passou a usar `pacientesApi.criar()` diretamente (ver acima).
 
 ## Tipos (`types/index.ts`)
 
@@ -104,7 +106,7 @@ Espelham as entidades e enums do backend, mais os tipos de autenticação: `Logi
 
 | Variável | Padrão | Uso |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8080/api` | Base URL do backend consumida por `lib/api.ts` |
+| `BACKEND_URL` | `http://localhost:8080/api` | Destino do proxy (`rewrites()` em `next.config.ts`) — só lida no processo do Next, nunca vai pro bundle do navegador. `NEXT_PUBLIC_API_URL` não existe mais: `lib/api.ts` sempre chama o caminho relativo `/api`, que passa por esse proxy. |
 
 ## Lacunas conhecidas
 

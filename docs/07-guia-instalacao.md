@@ -71,10 +71,10 @@ npm install
 npm run dev
 ```
 
-A aplicação sobe em `http://localhost:3000` e consome a API em `NEXT_PUBLIC_API_URL` (padrão `http://localhost:8080/api`, já apontando para o backend local). Para apontar para outro backend, crie um `frontend/.env.local`:
+A aplicação sobe em `http://localhost:3000`. As chamadas de API vão para `/api/*` (mesma origem) e o `next.config.ts` repassa isso para o backend por trás dos panos — necessário pro cookie de sessão do login funcionar (ver [Autenticação e Autorização](05-autenticacao-autorizacao.md)). O destino do proxy é `BACKEND_URL` (padrão `http://localhost:8080/api`, já apontando para o backend local); para apontar para outro backend, crie um `frontend/.env.local`:
 
 ```
-NEXT_PUBLIC_API_URL=http://localhost:8080/api
+BACKEND_URL=http://localhost:8080/api
 ```
 
 Outros scripts disponíveis (`frontend/package.json`):
@@ -85,7 +85,7 @@ npm run start   # roda o build de produção
 npm run lint    # ESLint
 ```
 
-> Atenção: como descrito em [Frontend — Lacunas conhecidas](06-frontend.md#lacunas-conhecidas), o frontend ainda não envia o token JWT nas requisições. Rodando o backend com o `SecurityConfig` atual, a maioria das chamadas do frontend retornará `401/403` até que a autenticação seja implementada na camada de UI.
+> O frontend autentica via cookie `HttpOnly` definido pelo backend no login — nada a configurar manualmente. Se o backend rodar numa porta diferente do padrão, lembre de ajustar `BACKEND_URL` (acima), senão o proxy do Next.js aponta pro lugar errado e toda chamada autenticada retorna `401`.
 
 ## Nota de segurança
 

@@ -2,7 +2,12 @@
 
 ## Visão geral
 
-A API usa **autenticação stateless baseada em JWT** (JSON Web Token). Não há sessão de servidor: cada requisição autenticada carrega um token `Bearer` no header `Authorization`, validado a cada chamada pelo `JwtAuthenticationFilter`.
+A API usa **autenticação stateless baseada em JWT** (JSON Web Token). Não há sessão de servidor. O token viaja de duas formas, aceitas em paralelo pelo `JwtAuthenticationFilter`:
+
+- **Cookie `HttpOnly`** (`triagem_token`, nome configurável em `jwt.cookie-name`) — o caminho real usado pelo navegador. O backend define esse cookie no `Set-Cookie` da resposta de `/auth/login`/`/auth/registrar`; como é `HttpOnly`, nenhum JavaScript da página consegue ler ou copiar o token (defesa contra roubo de sessão via XSS). O frontend nunca guarda o token em `localStorage`/`document.cookie` — só o navegador sabe que ele existe, e o anexa automaticamente em toda chamada.
+- **Header `Authorization: Bearer <token>`** — mantido para `curl`/Postman/Swagger e qualquer automação de teste. O corpo de `login`/`registrar` continua devolvendo `token` no JSON por esse motivo (o app do navegador simplesmente ignora esse campo).
+
+O header tem prioridade quando os dois vierem juntos.
 
 ```mermaid
 sequenceDiagram
@@ -20,25 +25,27 @@ sequenceDiagram
     S->>J: gerarToken(userDetails)
     J-->>S: token JWT
     S-->>A: LoginResponseDTO {token, tipo, id, nome, email, tipoUsuario}
-    A-->>C: 200 OK + token
+    A-->>C: 200 OK + Set-Cookie: triagem_token (HttpOnly) + token no corpo
 
     Note over C: requisições seguintes
-    C->>A: GET /pacientes  (Authorization: Bearer <token>)
-    Note over A: JwtAuthenticationFilter valida o token<br/>e popula o SecurityContext
+    C->>A: GET /pacientes  (Cookie: triagem_token=... — anexado automaticamente pelo navegador)
+    Note over A: JwtAuthenticationFilter lê o header Authorization;<br/>se ausente, cai no cookie; valida e popula o SecurityContext
 ```
+
+**Proxy do frontend (`frontend/next.config.ts`):** o cookie só funciona `HttpOnly` sem HTTPS porque o Next.js repassa `/api/*` para o backend por trás dos panos (`rewrites()`) — do ponto de vista do navegador, frontend e backend são a mesma origem. Sem esse proxy, um cookie entre origens diferentes exigiria `SameSite=None; Secure`, que por sua vez exige HTTPS — inviável em desenvolvimento local. Ver [Frontend](06-frontend.md).
 
 ## Componentes
 
 | Classe | Responsabilidade |
 |---|---|
-| `AuthController` | expõe `POST /auth/login` e `POST /auth/registrar` |
+| `AuthController` | expõe `POST /auth/login`, `POST /auth/registrar` e `POST /auth/logout`; define/limpa o cookie `HttpOnly` do token |
 | `AuthService` | orquestra autenticação (via `AuthenticationManager`) e registro; gera o `LoginResponseDTO` |
 | `JwtService` | gera e valida tokens JWT (assinatura HMAC, claims `subject`=e-mail, `issuedAt`, `expiration`) |
-| `JwtAuthenticationFilter` | filtro (`OncePerRequestFilter`) que intercepta cada requisição, extrai o token do header `Authorization: Bearer ...`, valida e popula o `SecurityContextHolder` |
+| `JwtAuthenticationFilter` | filtro (`OncePerRequestFilter`) que intercepta cada requisição e extrai o token do header `Authorization: Bearer ...` ou, se ausente, do cookie `HttpOnly` (nome em `jwt.cookie-name`); valida e popula o `SecurityContextHolder` |
 | `UserDetailsServiceImpl` | carrega o `Usuario` pelo e-mail e converte `tipoUsuario` em uma *authority* Spring Security no formato `ROLE_<TIPO>` (ex.: `ROLE_ADMIN`) |
 | `SecurityConfig` | define a cadeia de filtros, as regras de autorização por rota, CORS (`corsConfigurationSource`), `PasswordEncoder` (BCrypt) e é `STATELESS` |
 
-> **CORS:** a API só libera explicitamente as origens `http://localhost:3000` e `http://127.0.0.1:3000` (onde roda o frontend em desenvolvimento). Sem essa configuração, o navegador bloqueia toda chamada cross-origin antes mesmo dela chegar ao Spring Security — `curl`/Postman não são afetados por CORS, então esse tipo de problema só aparece testando a partir de um navegador de verdade. Ao publicar o frontend em outro domínio, adicione a origem de produção em `corsConfigurationSource()`.
+> **CORS:** a API só libera explicitamente as origens `http://localhost:3000` e `http://127.0.0.1:3000` (onde roda o frontend em desenvolvimento). Sem essa configuração, o navegador bloqueia toda chamada cross-origin antes mesmo dela chegar ao Spring Security — `curl`/Postman não são afetados por CORS, então esse tipo de problema só aparece testando a partir de um navegador de verdade. Ao publicar o frontend em outro domínio, adicione a origem de produção em `corsConfigurationSource()`. Na prática, o tráfego do navegador hoje nem passa mais por CORS de verdade — vai pelo proxy do Next.js (mesma origem, ver acima); esse bean segue existindo pra Swagger/testes diretos contra o backend a partir de outra origem.
 
 ## Perfis de usuário
 
@@ -65,7 +72,7 @@ O enum `TipoUsuario` define três papéis, mapeados para *roles* do Spring Secur
 ```
 
 Em resumo:
-- **Público**: `/auth/**` (login e registro genérico) e `POST /pacientes` (auto-cadastro de paciente — é assim que a tela de cadastro do frontend cria uma conta completa, com CPF etc., sem precisar estar logado).
+- **Público**: `/auth/**` (login, registro genérico e logout — logout precisa ser público porque limpar um cookie potencialmente já expirado/ausente não é uma operação sensível) e `POST /pacientes` (auto-cadastro de paciente — é assim que a tela de cadastro do frontend cria uma conta completa, com CPF etc., sem precisar estar logado).
 - **Somente `ADMIN`**: gerenciar profissionais (criar/editar/excluir) e excluir usuários.
 - **`ADMIN` ou `PROFISSIONAL`**: ver a fila de triagem ordenada por urgência e a lista de pacientes urgentes.
 - **Qualquer usuário autenticado** (inclusive `PACIENTE`): todas as demais rotas — incluindo criar/editar/listar pacientes, anamneses, agendamentos e consultas de **qualquer** paciente.
@@ -74,12 +81,18 @@ Método (`@EnableMethodSecurity`) está habilitado no `SecurityConfig`, mas atua
 
 ## Como autenticar uma chamada
 
-1. `POST /auth/login` (ou `/auth/registrar`) → recebe `{ token, tipo: "Bearer", id, nome, email, tipoUsuario }`.
+**Pelo navegador (frontend):** nada a fazer manualmente. `POST /auth/login`/`/auth/registrar` já deixa o cookie `HttpOnly` configurado via `Set-Cookie`; toda chamada seguinte pro mesmo site já leva o cookie sozinha. `POST /auth/logout` limpa esse cookie (obrigatório passar por ele — `HttpOnly` não pode ser apagado por JavaScript).
+
+**Por `curl`/Postman/Swagger:**
+1. `POST /auth/login` (ou `/auth/registrar`) → recebe `{ token, tipo: "Bearer", id, nome, email, tipoUsuario }` no corpo.
 2. Nas chamadas seguintes, enviar o header:
    ```
    Authorization: Bearer <token>
    ```
-3. O token expira em `jwt.expiration` milissegundos (configurado em `application.properties`, atualmente 86400000 ms = 24h). Não há endpoint de refresh — expirado o token, é necessário logar novamente.
+
+O token expira em `jwt.expiration` milissegundos (configurado em `application.properties`, atualmente 86400000 ms = 24h) — vale tanto pro cookie (`Max-Age`) quanto pro header. Não há endpoint de refresh — expirado o token, é necessário logar novamente.
+
+**Restrição de segurança do cookie, registrada de propósito:** o cookie é emitido `SameSite=Lax`, sem token CSRF — isso só é seguro enquanto frontend e backend continuarem "mesmo site" (é o que o proxy do Next.js garante hoje, inclusive em produção se o deploy mantiver esse proxy na frente). Se um deploy futuro separar frontend e backend em sites diferentes sem proxy, `SameSite=None` vira obrigatório — e `SameSite=None` não oferece proteção nenhuma contra CSRF, então nesse momento uma defesa de verdade (double-submit cookie ou synchronizer token) precisa entrar, não é pra ficar adiando essa decisão sem repensar.
 
 ## Lacunas conhecidas
 

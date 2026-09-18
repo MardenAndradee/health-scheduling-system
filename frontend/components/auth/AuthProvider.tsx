@@ -3,7 +3,7 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { authApi, pacientesApi } from '@/lib/api'
-import { limparSessao, obterToken, obterUsuario, salvarSessao } from '@/lib/auth'
+import { limparUsuario, obterUsuario, salvarUsuario } from '@/lib/auth'
 import { LoginRequest, LoginResponse, PacienteForm, SessaoUsuario } from '@/types'
 
 interface AuthContextValue {
@@ -11,7 +11,7 @@ interface AuthContextValue {
   carregando: boolean
   login: (dados: LoginRequest) => Promise<SessaoUsuario>
   registrar: (dados: PacienteForm) => Promise<SessaoUsuario>
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -23,7 +23,9 @@ function aplicarResposta(resposta: LoginResponse): SessaoUsuario {
     email: resposta.email,
     tipoUsuario: resposta.tipoUsuario,
   }
-  salvarSessao(resposta.token, sessao)
+  // O token em si não passa por aqui — já chegou num cookie HttpOnly
+  // (Set-Cookie da resposta de /auth/login), inacessível a este JavaScript.
+  salvarUsuario(sessao)
   return sessao
 }
 
@@ -35,10 +37,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // localStorage não existe no servidor — a sessão só pode ser lida após o
     // mount, por isso é hidratada aqui em vez de via useState(() => ...).
-    const token = obterToken()
+    // Leitura otimista: o cookie HttpOnly não pode ser conferido por este
+    // JavaScript, então confia no usuário salvo e deixa a primeira chamada
+    // de API real corrigir sozinha via 401 se o cookie não for mais válido.
     const sessao = obterUsuario()
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (token && sessao) setUsuario(sessao)
+    if (sessao) setUsuario(sessao)
     setCarregando(false)
   }, [])
 
@@ -59,8 +63,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return sessao
   }
 
-  const logout = () => {
-    limparSessao()
+  const logout = async () => {
+    // Um cookie HttpOnly só pode ser apagado por quem o definiu — o
+    // servidor — então logout precisa de uma chamada real. Melhor esforço:
+    // uma falha de rede aqui não deve travar o usuário tentando sair.
+    await authApi.logout().catch(() => {})
+    limparUsuario()
     setUsuario(null)
     router.replace('/login')
   }

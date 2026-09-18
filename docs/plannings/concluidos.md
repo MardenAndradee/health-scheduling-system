@@ -4,6 +4,22 @@ Histórico centralizado do que já foi planejado e implementado no projeto. Cada
 
 ---
 
+## 2026-09-18 — Token de autenticação em cookie HttpOnly
+
+**Plano original:** `token-cookie-httponly.md` (removido)
+
+O JWT saiu do `localStorage` (lido/escrito pelo frontend, vulnerável a roubo via XSS) e passou a viver num cookie `HttpOnly` definido pelo backend — inacessível a qualquer JavaScript da página. Como frontend (`:3000`) e backend (`:8080/api`) são origens diferentes, e cookie `HttpOnly` entre origens diferentes exigiria `SameSite=None; Secure` (HTTPS, inviável em dev local), a peça central da mudança foi ligar um proxy same-origin no Next.js (`rewrites()` em `next.config.ts`, repassando `/api/*` pro backend por trás dos panos) — havia até um rewrite pronto pra isso num arquivo morto (`next.config copy.ts`, nome errado, nunca carregado), só nunca tinha sido ligado no config real.
+
+- **Backend**: `AuthController` passa a definir o cookie (`ResponseCookie`, `HttpOnly`, `SameSite=Lax`, `Path=/api`, `Max-Age` = `jwt.expiration`) no `Set-Cookie` de `login`/`registrar`, mantendo `token` também no corpo JSON (uso deliberado: preserva o fluxo de teste manual via curl/Swagger). Novo `POST /auth/logout` — necessário porque um cookie `HttpOnly` só pode ser limpo por quem o definiu (o servidor), nunca por JavaScript no navegador; usa `/auth/logout` e não `/logout` de propósito, pra não colidir com o `LogoutFilter` que o Spring Security registra por padrão nesse path. `JwtAuthenticationFilter` passou a aceitar o token por dois caminhos — header `Authorization: Bearer` (prioridade, mantém tooling funcionando) ou, se ausente, o cookie.
+- **Frontend**: `lib/auth.ts` não guarda mais token nenhum, só os dados de exibição do usuário (`SessaoUsuario`) em `localStorage`. `lib/api.ts` para de injetar `Authorization` manualmente, usa `credentials: 'same-origin'` (falha fechado se algum dia apontar cross-origin) e chama sempre o caminho relativo `/api` (removida a variável `NEXT_PUBLIC_API_URL` — o único ponto de configuração agora é `BACKEND_URL`, lido só no `next.config.ts`). `AuthProvider.logout()` virou assíncrono, chamando o novo endpoint antes de limpar o estado local. A hidratação da sessão ao montar a página é otimista (não dá pra conferir um cookie `HttpOnly` do lado do cliente) — confia no usuário salvo e deixa a primeira chamada de API real corrigir via 401 se a sessão não for mais válida.
+- **CSRF**: decisão de não adicionar token CSRF agora — `SameSite=Lax` já bloqueia o vetor clássico (nenhuma rota do projeto muta estado via GET), mas essa segurança depende de frontend e backend continuarem "mesmo site" (o proxy garante isso hoje). Registrada como restrição explícita em `docs/05-autenticacao-autorizacao.md`, não pra ficar esquecida se um deploy futuro separar os dois em sites diferentes.
+
+**Desvios em relação ao plano:** nenhum na implementação em si. A validação em navegador (proxy + cookie juntos, ponta a ponta) não foi concluída nesta sessão — as portas de desenvolvimento "padrão" (3000/8080) estavam ocupadas por processos de outros projetos do usuário, e a alternativa de rodar numa porta fora da lista de CORS esbarrou no próprio propósito do teste (o proxy some, aparece "Invalid CORS request"). O usuário optou por não validar isso agora. O mecanismo do cookie em si (definição, atributos, leitura via cookie ou header, limpeza no logout) foi validado de ponta a ponta direto contra o backend via `curl` com cookie jar.
+
+**Arquivos principais alterados:** `backend/.../security/controller/AuthController.java`, `backend/.../security/filter/JwtAuthenticationFilter.java`, `backend/src/main/resources/application.properties` (+ `jwt.cookie-name`); `frontend/next.config.ts` (novo `rewrites()`), `frontend/next.config copy.ts` (removido), `frontend/lib/api.ts`, `frontend/lib/auth.ts`, `frontend/components/auth/AuthProvider.tsx`; `docs/05-autenticacao-autorizacao.md`, `docs/06-frontend.md`, `docs/07-guia-instalacao.md`.
+
+---
+
 ## 2026-08-27 — Definição de `nivelUrgencia` da Anamnese movida para o backend
 
 **Plano original:** `mover-definicao-urgencia-anamnese-backend.md` (removido)

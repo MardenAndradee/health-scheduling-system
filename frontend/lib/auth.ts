@@ -1,21 +1,18 @@
 import { SessaoUsuario, TipoUsuario } from '@/types'
 
-const TOKEN_KEY = 'triagem.token'
 const USUARIO_KEY = 'triagem.usuario'
 
-export function salvarSessao(token: string, usuario: SessaoUsuario) {
-  localStorage.setItem(TOKEN_KEY, token)
+// O token em si não passa mais por aqui — vive só num cookie HttpOnly
+// definido pelo backend, que o JavaScript do navegador nunca consegue ler.
+// O que sobra pra guardar no cliente é só a informação de exibição (não
+// sensível, já visível na própria UI).
+
+export function salvarUsuario(usuario: SessaoUsuario) {
   localStorage.setItem(USUARIO_KEY, JSON.stringify(usuario))
 }
 
-export function limparSessao() {
-  localStorage.removeItem(TOKEN_KEY)
+export function limparUsuario() {
   localStorage.removeItem(USUARIO_KEY)
-}
-
-export function obterToken(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem(TOKEN_KEY)
 }
 
 export function obterUsuario(): SessaoUsuario | null {

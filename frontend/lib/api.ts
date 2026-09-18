@@ -9,23 +9,25 @@ import {
   StatusAgendamento,
   Usuario,
 } from '@/types'
-import { limparSessao, obterToken } from '@/lib/auth'
+import { limparUsuario } from '@/lib/auth'
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api'
+// Caminho relativo — passa pelo rewrite do Next.js (next.config.ts), que
+// repassa pro backend por trás dos panos. Precisa ser mesma origem pro
+// cookie HttpOnly do login funcionar sem HTTPS em dev local.
+const BASE_URL = '/api'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = obterToken()
   const res = await fetch(`${BASE_URL}${path}`, {
+    credentials: 'same-origin', // manda/recebe o cookie de sessão; falha fechado se algum dia apontar cross-origin
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
     ...options,
   })
 
   if (res.status === 401) {
-    limparSessao()
+    limparUsuario()
     if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
       window.location.href = '/login'
     }
@@ -44,6 +46,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const authApi = {
   login: (data: LoginRequest) =>
     request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  logout: () => request<void>('/auth/logout', { method: 'POST' }),
 }
 
 // ─── Usuários ─────────────────────────────────────────────────────────────────
