@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react'
 
 export type EspecialidadeId = 'clinico_geral' | 'enfermagem' | 'odontologia' | 'psicologia' | 'nutricao'
 
-export type TipoResposta = 'sim_nao' | 'escala_0_10' | 'checkbox_multiplo' | 'texto_livre'
+export type TipoResposta = 'sim_nao' | 'escala_0_10' | 'numero' | 'selecao'
 
 interface PerguntaBase {
   id: string
@@ -17,38 +17,37 @@ export interface PerguntaEscala extends PerguntaBase {
   tipo: 'escala_0_10'
 }
 
-export interface PerguntaCheckbox extends PerguntaBase {
-  tipo: 'checkbox_multiplo'
-  opcoes: { id: string; label: string }[]
-}
-
-export interface PerguntaTexto extends PerguntaBase {
-  tipo: 'texto_livre'
+export interface PerguntaNumero extends PerguntaBase {
+  tipo: 'numero'
+  unidade?: string
   placeholder?: string
 }
 
-export type Pergunta = PerguntaSimNao | PerguntaEscala | PerguntaCheckbox | PerguntaTexto
-
-export interface GrupoPerguntas {
-  id: string
-  titulo: string
-  pesoMin: number
-  pesoMax: number
-  perguntas: Pergunta[]
+export interface PerguntaSelecao extends PerguntaBase {
+  tipo: 'selecao'
+  opcoes: { id: string; label: string }[]
 }
+
+export type Pergunta = PerguntaSimNao | PerguntaEscala | PerguntaNumero | PerguntaSelecao
 
 export interface Especialidade {
   id: EspecialidadeId
   nome: string
   descricaoCurta: string
   icone: LucideIcon
-  grupos: GrupoPerguntas[]
+  perguntas: Pergunta[]
 }
 
-/** grupoId -> perguntaId -> valor respondido */
-export type RespostaValor = boolean | number | string[] | string
-export type RespostasGrupo = Record<string, RespostaValor>
-export type RespostasEspecialidade = Record<string, RespostasGrupo>
+/**
+ * perguntaId -> valor respondido. O peso/cálculo de urgência de cada
+ * resposta não vive aqui nem em nenhum lugar do frontend — o backend
+ * (AnamneseService) recalcula por conta própria a partir do
+ * especialidadeId + idade + respostas, é a única fonte de verdade pro
+ * nível de urgência. O frontend só sabe o suficiente pra desenhar a
+ * pergunta certa e serializar a resposta.
+ */
+export type RespostaValor = boolean | number | string
+export type RespostasEspecialidade = Record<string, RespostaValor>
 
 export interface IdentificacaoForm {
   nomeCompleto: string
@@ -75,7 +74,7 @@ export function valorPadraoPergunta(pergunta: Pergunta): RespostaValor {
   switch (pergunta.tipo) {
     case 'sim_nao': return false
     case 'escala_0_10': return 0
-    case 'checkbox_multiplo': return []
-    case 'texto_livre': return ''
+    case 'numero': return 0
+    case 'selecao': return pergunta.opcoes[0]?.id ?? ''
   }
 }

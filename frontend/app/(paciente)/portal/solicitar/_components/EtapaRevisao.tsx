@@ -42,20 +42,18 @@ export function EtapaRevisao({ especialidade, identificacao, respostas }: {
       <Campo label="Sexo" valor={rotuloSexo[identificacao.sexo] || ''} />
       <Campo label="Queixa principal" valor={identificacao.queixaPrincipal} />
 
-      {especialidade.grupos.map(grupo => (
-        <div key={grupo.id}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', letterSpacing: '.05em', marginBottom: 6 }}>
-            {grupo.titulo.toUpperCase()}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {grupo.perguntas.map(pergunta => (
-              <div key={pergunta.id} style={{ fontSize: 13, lineHeight: 1.5 }}>
-                {pergunta.texto} <strong>{formatarValorPergunta(pergunta, respostas[grupo.id]?.[pergunta.id])}</strong>
-              </div>
-            ))}
-          </div>
+      <div>
+        <div style={{ fontSize: 11, color: 'var(--muted)', letterSpacing: '.05em', marginBottom: 6 }}>
+          ANAMNESE
         </div>
-      ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {especialidade.perguntas.map(pergunta => (
+            <div key={pergunta.id} style={{ fontSize: 13, lineHeight: 1.5 }}>
+              {pergunta.texto} <strong>{formatarValorPergunta(pergunta, respostas[pergunta.id])}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

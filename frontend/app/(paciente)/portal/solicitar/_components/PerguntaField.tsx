@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckboxGroup, Select, Textarea, ToggleSimNao } from '@/components/ui'
+import { Input, Select, ToggleSimNao } from '@/components/ui'
 import { escalaDorOpcoes } from '@/lib/especialidades/pontuacao'
 import { Pergunta, RespostaValor } from '@/lib/especialidades/tipos'
 
@@ -32,23 +32,23 @@ export function PerguntaField({ pergunta, valor, onChange }: {
           options={escalaDorOpcoes}
         />
       )
-    case 'checkbox_multiplo':
+    case 'numero':
       return (
-        <CheckboxGroup
-          label={pergunta.texto}
-          opcoes={pergunta.opcoes}
-          selecionados={Array.isArray(valor) ? valor : []}
-          onChange={onChange}
+        <Input
+          label={pergunta.unidade ? `${pergunta.texto} (${pergunta.unidade})` : pergunta.texto}
+          value={typeof valor === 'number' && valor > 0 ? String(valor) : ''}
+          onChange={v => onChange(v === '' ? 0 : Number(v))}
+          type="number"
+          placeholder={pergunta.placeholder}
         />
       )
-    case 'texto_livre':
+    case 'selecao':
       return (
-        <Textarea
+        <Select
           label={pergunta.texto}
-          value={typeof valor === 'string' ? valor : ''}
+          value={typeof valor === 'string' && valor ? valor : pergunta.opcoes[0]?.id ?? ''}
           onChange={onChange}
-          placeholder={pergunta.placeholder}
-          rows={2}
+          options={pergunta.opcoes.map(o => ({ value: o.id, label: o.label }))}
         />
       )
   }

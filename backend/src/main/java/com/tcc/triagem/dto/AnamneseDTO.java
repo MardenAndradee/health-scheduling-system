@@ -33,5 +33,7 @@ public class AnamneseDTO {
 
     private Integer idade;
 
-    private Map<String, Map<String, Object>> respostas;
+    // perguntaId -> valor (Boolean, Integer ou String, conforme o tipo da
+    // pergunta) — ver frontend/lib/especialidades/tipos.ts.
+    private Map<String, Object> respostas;
 }

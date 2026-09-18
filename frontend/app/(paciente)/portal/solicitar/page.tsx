@@ -10,24 +10,24 @@ import { buscarEspecialidade } from '@/lib/especialidades/config'
 import { formatarQueixa, formatarResumoAnamnese } from '@/lib/especialidades/resumo'
 import {
   Especialidade, EspecialidadeId, IdentificacaoForm, RespostasEspecialidade, RespostaValor,
-  identificacaoVazia,
+  identificacaoVazia, valorPadraoPergunta,
 } from '@/lib/especialidades/tipos'
 import { EtapaEspecialidade } from './_components/EtapaEspecialidade'
 import { EtapaIdentificacao } from './_components/EtapaIdentificacao'
-import { EtapaGrupoPerguntas } from './_components/EtapaGrupoPerguntas'
+import { EtapaPergunta } from './_components/EtapaPergunta'
 import { EtapaRevisao } from './_components/EtapaRevisao'
 
 type Passo =
   | { tipo: 'especialidade' }
   | { tipo: 'identificacao' }
-  | { tipo: 'grupo'; grupoId: string }
+  | { tipo: 'pergunta'; perguntaId: string }
   | { tipo: 'revisao' }
 
 function construirPassos(especialidade: Especialidade | null): Passo[] {
   const passos: Passo[] = [{ tipo: 'especialidade' }]
   if (!especialidade) return passos
   passos.push({ tipo: 'identificacao' })
-  especialidade.grupos.forEach(g => passos.push({ tipo: 'grupo', grupoId: g.id }))
+  especialidade.perguntas.forEach(p => passos.push({ tipo: 'pergunta', perguntaId: p.id }))
   passos.push({ tipo: 'revisao' })
   return passos
 }
@@ -95,23 +95,20 @@ export default function SolicitarAtendimentoPage() {
 
   const selecionarEspecialidade = (id: EspecialidadeId) => {
     if (id !== especialidadeId) {
-      setRespostas({}) // respostas são indexadas por grupoId, que muda entre especialidades
+      setRespostas({}) // perguntas (e seus ids) mudam entre especialidades
       setEspecialidadeId(id)
     }
   }
 
-  const setRespostaPergunta = (grupoId: string, perguntaId: string, valor: RespostaValor) => {
-    setRespostas(prev => ({
-      ...prev,
-      [grupoId]: { ...prev[grupoId], [perguntaId]: valor },
-    }))
+  const setRespostaPergunta = (perguntaId: string, valor: RespostaValor) => {
+    setRespostas(prev => ({ ...prev, [perguntaId]: valor }))
   }
 
   const podeAvancar = (() => {
     switch (passoAtual.tipo) {
       case 'especialidade': return especialidadeId !== null
       case 'identificacao': return identificacaoValida(identificacao)
-      case 'grupo': return true
+      case 'pergunta': return true
       case 'revisao': return true
     }
   })()
@@ -180,14 +177,17 @@ export default function SolicitarAtendimentoPage() {
           <EtapaIdentificacao form={identificacao} setCampo={setCampo} />
         )}
 
-        {passoAtual.tipo === 'grupo' && especialidadeAtual && (() => {
-          const grupo = especialidadeAtual.grupos.find(g => g.id === passoAtual.grupoId)
-          if (!grupo) return null
+        {passoAtual.tipo === 'pergunta' && especialidadeAtual && (() => {
+          const indice = especialidadeAtual.perguntas.findIndex(p => p.id === passoAtual.perguntaId)
+          const pergunta = especialidadeAtual.perguntas[indice]
+          if (!pergunta) return null
           return (
-            <EtapaGrupoPerguntas
-              grupo={grupo}
-              respostas={respostas[grupo.id] || {}}
-              onChange={(perguntaId, valor) => setRespostaPergunta(grupo.id, perguntaId, valor)}
+            <EtapaPergunta
+              pergunta={pergunta}
+              numero={indice + 1}
+              total={especialidadeAtual.perguntas.length}
+              valor={respostas[pergunta.id] ?? valorPadraoPergunta(pergunta)}
+              onChange={valor => setRespostaPergunta(pergunta.id, valor)}
             />
           )
         })()}

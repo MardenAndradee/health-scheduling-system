@@ -4,6 +4,25 @@ Histórico centralizado do que já foi planejado e implementado no projeto. Cada
 
 ---
 
+## 2026-09-18 — Perguntas definitivas da anamnese por especialidade + correção Verde/Azul
+
+Substituídas as perguntas de anamnese (antes um rascunho, com pesos placeholder em 4 das 5 especialidades) pelas perguntas e pesos definitivos de "Pesquisa Médica TCC.docx" (seção "Perguntas definitivas e peso"), baseados no Protocolo de Manchester real e nas respostas de um formulário enviado a médicos. Cada especialidade passou de um modelo de "grupos de perguntas com peso por faixa" para exatamente 5 perguntas fixas, sem agrupamento — o wizard do paciente ganhou uma tela por pergunta (8 passos sempre: especialidade, identificação, 5 perguntas, revisão).
+
+- **Frontend** (`lib/especialidades/`): `tipos.ts`/`config.ts` reescritos para o modelo flat (`Especialidade.perguntas: Pergunta[]`, sem `grupos`); dois tipos de pergunta novos (`numero`, para a temperatura medida; `selecao`, pra respostas com mais de dois níveis de gravidade, como o tamanho do sangramento) substituindo `checkbox_multiplo`/`texto_livre` (não usados nas perguntas definitivas). `RespostasEspecialidade` virou `Record<perguntaId, valor>` plano. **Nenhum peso vive mais no frontend** — `pontuacao.ts` ficou só com `escalaDorOpcoes` (rótulos da escala 0-10); o cálculo é 100% backend, evitando a divergência que já existia entre os `pesoMin`/`pesoMax` do config antigo e os pesos reais usados no cálculo.
+- **Backend** (`AnamneseService`): as 5 `calcularUrgencia<Especialidade>()` (antes placeholders retornando sempre `VERDE`/`AZUL` pra 4 das 5 especialidades) ganharam os pesos reais do documento. Lookup de resposta virou plano (`Map<perguntaId, Object>`, era `Map<grupoId, Map<perguntaId, Object>>`) — `AnamneseDTO.respostas` mudou de tipo. `calculaPeso()` virou uma função de limiares (`peso >= N`) simples, cobrindo qualquer peso entre 0 e 10, não só os 5 valores oficiais.
+- **Correção Verde/Azul**: a paleta tinha os rótulos trocados desde a implementação original — Azul era "pouco urgente" e Verde "não urgente", o oposto do Protocolo de Manchester real (Vermelho > Laranja > Amarelo > **Verde** > **Azul**). Corrigido em `urgenciaConfig` (frontend), `NivelUrgencia` (enum Java, reordenado + comentários), `AnamneseRepository.findAllOrdenadosPorUrgencia` (fila de triagem) e toda a documentação (`docs/03`, `docs/04`, `docs/06`, `docs/08`) — decisão confirmada com o usuário antes de aplicar, por ser uma mudança de significado que afeta badges, ordenação da fila e o próprio protocolo clínico de referência.
+
+**Desvios em relação ao pedido:**
+- Duas perguntas do documento davam duas respostas de peso possíveis pra um "Sim" sem critério de corte (ex.: "dor no peito ou falta de ar" valendo 10 ou 8) — usado sempre o peso mais alto, seguindo o princípio de segurança do próprio documento ("na dúvida, eleva a prioridade").
+- Duas perguntas foram reescritas pra manter a convenção de que "Sim" sempre indica o sinal de alerta (nunca o oposto), preservando o critério clínico original: "Você consegue caminhar e se manter em pé sem ajuda?" (peso valia pra "não consegue") virou "Você tem dificuldade para caminhar ou se manter em pé sem ajuda?"; mesma lógica pra pergunta de ingestão de água/alimentos da Nutrição.
+- O bônus de idade que já existia só em Clínico Geral (idade ≥65 ou <12 → peso mínimo 7) foi removido — não fazia parte das 5 perguntas definitivas de nenhuma especialidade, então ficaria inconsistente mantê-lo só ali.
+- Nomes de exibição atualizados pra bater com o documento: "Odontologia" → "Dentista", "Nutrição" → "Nutricionista", "Psicologia" → "Psicólogo" (os ids internos `odontologia`/`nutricao`/`psicologia` não mudaram, só o rótulo mostrado).
+- Validação do cálculo de peso feita inteiramente via `curl` (20 cenários cobrindo os 5 níveis nas 5 especialidades, incluindo o tipo `selecao`) — não validei a renderização do wizard no navegador porque a porta 3000 (única liberada no CORS/proxy) estava ocupada por outro projeto do usuário, e ele já tinha sinalizado antes, na tarefa anterior, que não precisava dessa validação específica.
+
+**Arquivos principais alterados:** `frontend/lib/especialidades/{tipos,config,pontuacao,resumo}.ts`, `frontend/app/(paciente)/portal/solicitar/page.tsx`, `frontend/app/(paciente)/portal/solicitar/_components/{PerguntaField,EtapaPergunta,EtapaRevisao}.tsx` (`EtapaGrupoPerguntas.tsx` removido), `frontend/lib/utils.ts`; `backend/.../service/AnamneseService.java`, `backend/.../dto/AnamneseDTO.java`, `backend/.../model/enums/NivelUrgencia.java`, `backend/.../repository/AnamneseRepository.java`; `docs/03-modelo-de-dados.md`, `docs/04-api-rest.md`, `docs/06-frontend.md`, `docs/08-design.md`.
+
+---
+
 ## 2026-09-18 — Token de autenticação em cookie HttpOnly
 
 **Plano original:** `token-cookie-httponly.md` (removido)

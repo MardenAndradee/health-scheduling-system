@@ -66,12 +66,17 @@ export function mensagemErro(erro: unknown): string {
 // reaproveitar nenhuma destas cinco cores em outro contexto da UI (erro de
 // formulário, status de agendamento etc.), para não confundir gravidade
 // clínica com feedback de sistema. Ver docs/08-design.md.
+//
+// Ordem e rótulos seguem o Protocolo de Manchester real (Vermelho > Laranja
+// > Amarelo > Verde > Azul — Verde é "pouco urgente", Azul é "não urgente").
+// Corrigido a partir da pesquisa em "Pesquisa Médica TCC.docx" — a versão
+// anterior tinha Azul/Verde invertidos.
 export const urgenciaConfig: Record<NivelUrgencia, { label: string; color: string; bg: string }> = {
   VERMELHO: { label: 'Emergência',    color: '#DC2626', bg: '#FEE2E2' },
   LARANJA:  { label: 'Muito urgente', color: '#F97316', bg: '#FFEDD5' },
   AMARELO:  { label: 'Urgente',       color: '#EAB308', bg: '#FEF9C3' },
-  AZUL:     { label: 'Pouco urgente', color: '#3B82F6', bg: '#DBEAFE' },
-  VERDE:    { label: 'Não urgente',   color: '#22C55E', bg: '#DCFCE7' },
+  VERDE:    { label: 'Pouco urgente', color: '#22C55E', bg: '#DCFCE7' },
+  AZUL:     { label: 'Não urgente',   color: '#3B82F6', bg: '#DBEAFE' },
 }
 
 // Cores próprias de status de agendamento — deliberadamente distintas das

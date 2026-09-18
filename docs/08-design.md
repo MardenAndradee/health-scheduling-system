@@ -28,15 +28,15 @@ Fixada pelo usuário — não foi ponto de exploração de design.
 
 ### Cores de classificação de risco — uso exclusivo
 
-Definidas em `lib/utils.ts` (`urgenciaConfig`), nunca como token CSS genérico, para deixar claro que são de um domínio à parte:
+Definidas em `lib/utils.ts` (`urgenciaConfig`), nunca como token CSS genérico, para deixar claro que são de um domínio à parte. Ordem e rótulos seguem o Protocolo de Manchester real (ver "Pesquisa Médica TCC.docx") — do mais ao menos urgente:
 
-| Nível | Cor |
-|---|---|
-| `VERMELHO` | `#DC2626` |
-| `LARANJA` | `#F97316` |
-| `AMARELO` | `#EAB308` |
-| `VERDE` | `#22C55E` |
-| `AZUL` | `#3B82F6` |
+| Nível | Rótulo | Cor |
+|---|---|---|
+| `VERMELHO` | Emergência | `#DC2626` |
+| `LARANJA` | Muito urgente | `#F97316` |
+| `AMARELO` | Urgente | `#EAB308` |
+| `VERDE` | Pouco urgente | `#22C55E` |
+| `AZUL` | Não urgente | `#3B82F6` |
 
 Nenhuma dessas cinco cores aparece em nenhum outro contexto da UI — nem em `statusConfig` (status de agendamento), nem em `tipoCor` (tipo de usuário na tela de administração), nem nos botões de erro/destrutivos. `statusConfig` e `tipoCor` foram desenhados com paletas próprias, deliberadamente sem nenhum hex em comum com a lista acima (ver `lib/utils.ts` e `app/(admin)/admin/usuarios/page.tsx`).
 

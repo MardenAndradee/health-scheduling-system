@@ -137,12 +137,16 @@ para defini-lo — resolvidos em `AnamneseService.resolverNivelUrgencia`:
   diretamente, sem `especialidadeId`/`respostas`.
 - **Calculado a partir da triagem por especialidade** (usado pelo wizard do
   paciente): envia `especialidadeId` + `idade` + `respostas`
-  (`Map<grupoId, Map<perguntaId, valor>>`, espelhando as perguntas de
+  (`Map<perguntaId, valor>` — chave plana, uma por pergunta; `valor` é
+  `Boolean`, `Integer` ou `String` conforme o tipo da pergunta, espelhando
   `frontend/lib/especialidades/config.ts`) e **não** envia `nivelUrgencia` —
   o backend calcula via `AnamneseService.defineUrgencia`, que despacha para
-  um método por especialidade (`calcularUrgencia<Especialidade>`). Os pesos
-  de cada especialidade ainda são um placeholder (todos retornam `VERDE`) até
-  serem implementados.
+  um método por especialidade (`calcularUrgencia<Especialidade>`). As 5
+  perguntas e pesos de cada especialidade são definitivos (baseados na
+  pesquisa do Protocolo de Manchester) — a prioridade final é sempre o maior
+  peso entre as respostas dadas (`Math.max`, nunca a média), mapeado pra cor
+  via `AnamneseService.calculaPeso` (peso 10→VERMELHO, 8→LARANJA, 6→AMARELO,
+  3→VERDE, 1 ou nenhum sinal→AZUL).
 
 Se nenhum dos dois vier preenchido, a API responde `400`
 (`RegraDeNegocioException`).
@@ -166,8 +170,11 @@ Se nenhum dos dois vier preenchido, a API responde `400`
   "especialidadeId": "clinico_geral",
   "idade": 45,
   "respostas": {
-    "sintomas_alarme": { "sinais_alarme": ["dor_peito"] },
-    "intensidade_evolucao": { "intensidade_dor": 9, "dor_subita": true, "febre_vomitos": [] }
+    "dor_peito_falta_ar": true,
+    "alteracao_consciencia": false,
+    "intensidade_dor": 9,
+    "temperatura": 36.8,
+    "tempo_sintomas": "recente"
   }
 }
 ```

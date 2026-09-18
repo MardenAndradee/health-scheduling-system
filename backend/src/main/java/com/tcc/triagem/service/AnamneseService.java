@@ -50,6 +50,21 @@ public class AnamneseService {
                 "Informe o nível de urgência ou as respostas da triagem por especialidade.");
     }
 
+    // ─── Cálculo de urgência por especialidade ─────────────────────────────────
+    //
+    // Perguntas e pesos definitivos — baseados na pesquisa sobre o Protocolo de
+    // Manchester e nas respostas do formulário enviado a médicos
+    // ("Pesquisa Médica TCC.docx", seção "Perguntas definitivas e peso").
+    //
+    // A prioridade de um paciente é definida pelo SINAL MAIS GRAVE apresentado,
+    // nunca pela média de todos os sinais (reproduz o princípio "primeiro
+    // discriminador positivo vence" do Manchester) — por isso cada resposta só
+    // eleva o peso via Math.max, nunca soma.
+    //
+    // Os ids de pergunta/opção usados aqui precisam bater exatamente com
+    // frontend/lib/especialidades/config.ts — não há checagem em tempo de
+    // compilação disso, só a convenção dos dois lados usarem os mesmos ids.
+
     public NivelUrgencia defineUrgencia(AnamneseDTO dto) {
         return switch (dto.getEspecialidadeId()) {
             case "clinico_geral" -> calcularUrgenciaClinicoGeral(dto);
@@ -63,346 +78,191 @@ public class AnamneseService {
     }
 
     private NivelUrgencia calcularUrgenciaClinicoGeral(AnamneseDTO dto) {
-        List<String> sinaisAlarme = respostaCheckbox(dto, "sintomas_alarme", "sinais_alarme");
-        // opções: dor_peito, falta_ar_severa, paralisia_formigamento, perda_consciencia
-        List<String> febreVomitos = respostaCheckbox(dto, "intensidade_evolucao", "febre_vomitos");
-        //opções: febre_persistente, vomitos_frequentes
-        List<String> sinaisGastro = respostaCheckbox(dto, "sinais_inflamatorios_gastro", "sinais_gastro");
-        // opções: diarreia, dor_abdominal_moderada, tontura_ao_levantar, sintomas_gripais_3dias
-        List<String> condicoesCronicas = respostaCheckbox(dto, "historico_cronicos", "condicoes_cronicas");
-        // opções: hipertensao, diabetes, insuficiencia_cardiaca, insuficiencia_renal
-
-        int intensidadeDor = respostaEscala(dto, "intensidade_evolucao", "intensidade_dor");
-
-        boolean dorSubita = respostaSimNao(dto, "intensidade_evolucao", "dor_subita");
-        boolean medicacaoContinua = respostaSimNao(dto, "historico_cronicos", "medicacao_continua");
-
-        Integer idade = dto.getIdade();
+        boolean dorPeitoFaltaAr = respostaSimNao(dto, "dor_peito_falta_ar");
+        boolean alteracaoConsciencia = respostaSimNao(dto, "alteracao_consciencia");
+        int intensidadeDor = respostaEscala(dto, "intensidade_dor");
+        double temperatura = respostaNumero(dto, "temperatura");
+        String tempoSintomas = respostaSelecao(dto, "tempo_sintomas");
 
         int peso = 0;
 
-        if (idade != null && idade >= 65) {
-            peso = Math.max(peso, 7);
-        }
+        // Pergunta 1 — dor no peito ou falta de ar (peso 10, o mais alto entre
+        // 10/8 do documento, por segurança: na dúvida, eleva a prioridade)
+        if (dorPeitoFaltaAr) peso = Math.max(peso, 10);
 
-        if (idade != null && idade < 12) {
-            peso = Math.max(peso, 7);
-        }
+        // Pergunta 2 — desmaio/confusão/dificuldade de se manter acordado
+        if (alteracaoConsciencia) peso = Math.max(peso, 8);
 
-        if (sinaisAlarme != null && !sinaisAlarme.isEmpty()) {
-            for (String sinal : sinaisAlarme) {
-                switch (sinal) {
-                    case "dor_peito" -> peso = Math.max(peso, 8);
-                    case "falta_ar_severa" -> peso = Math.max(peso, 10);
-                    case "paralisia_formigamento" -> peso = Math.max(peso, 6);
-                    case "perda_consciencia" -> peso = Math.max(peso, 6);
-                }
-            }
-        }
-
+        // Pergunta 3 — intensidade da dor (0-10)
         switch (intensidadeDor) {
-            case 1,2,3 -> peso = Math.max(peso, 3);
-            case 4,5 -> peso = Math.max(peso, 5);
-            case 6,7 -> peso = Math.max(peso, 6);
-            case 8,9 -> peso = Math.max(peso, 8);
-            case 10 -> peso = Math.max(peso, 10);
+            case 8, 9, 10 -> peso = Math.max(peso, 8);
+            case 4, 5, 6, 7 -> peso = Math.max(peso, 6);
+            case 1, 2, 3 -> peso = Math.max(peso, 3);
         }
 
-        if (dorSubita) {
-            peso = Math.max(peso, 7);
-        }
+        // Pergunta 4 — febre / temperatura medida
+        if (temperatura >= 41) peso = Math.max(peso, 8);
+        else if (temperatura >= 38.5) peso = Math.max(peso, 6);
+        else if (temperatura >= 37.5) peso = Math.max(peso, 3);
 
-        if (febreVomitos != null && !febreVomitos.isEmpty()) {
-            for (String sintoma : febreVomitos) {
-                switch (sintoma) {
-                    case "febre_persistente" -> peso = Math.max(peso, 1);
-                    case "vomitos_frequentes" -> peso = Math.max(peso, 1);
-                }
-            }
-        }
-
-        if (sinaisGastro != null && !sinaisGastro.isEmpty()) {
-            for (String sinal : sinaisGastro) {
-                switch (sinal) {
-                    case "diarreia" -> peso = Math.max(peso, 1);
-                    case "dor_abdominal_moderada" -> peso = Math.max(peso, 1);
-                    case "tontura_ao_levantar" -> peso = Math.max(peso, 1);
-                    case "sintomas_gripais_3dias" -> peso = Math.max(peso, 1);
-                }
-            }
-        }
-
-        if (condicoesCronicas != null && !condicoesCronicas.isEmpty()) {
-            for (String condicao : condicoesCronicas) {
-                switch (condicao) {
-                    case "hipertensao" -> peso = Math.max(peso, 1);
-                    case "diabetes" -> peso = Math.max(peso, 1);
-                    case "insuficiencia_cardiaca" -> peso = Math.max(peso, 1);
-                    case "insuficiencia_renal" -> peso = Math.max(peso, 1);
-                }
-            }
-        }
-
-        if (medicacaoContinua) {
-            peso = Math.max(peso, 1);
-        }
+        // Pergunta 5 — tempo desde o início dos sintomas
+        if ("recente".equals(tempoSintomas)) peso = Math.max(peso, 6);
+        else if ("antigo_estavel".equals(tempoSintomas)) peso = Math.max(peso, 1);
 
         return calculaPeso(peso);
     }
 
     private NivelUrgencia calcularUrgenciaEnfermagem(AnamneseDTO dto) {
-        List<String> sinaisAgudos = respostaCheckbox(dto, "urgencias_sinais_agudos", "sinais_agudos");
-        // opções: sangramento_ativo, febre_alta_agora, suspeita_dengue_dor_abdominal
-        List<String> tipoProcedimento = respostaCheckbox(dto, "procedimentos_testes", "tipo_procedimento");
-        // opções: vacinacao_rotina, retirada_pontos, afericao_pressao_rotina, teste_rapido_assintomatico
-        List<String> caracteristicasFerida = respostaCheckbox(dto, "avaliacao_lesoes", "caracteristicas_ferida");
-        // opções: secrecao_purulenta, odor_forte, calor_local, mordida_trauma_recente
-
-        boolean precisaCurativo = respostaSimNao(dto, "avaliacao_lesoes", "precisa_curativo");
-        
-        
-        Integer idade = dto.getIdade();
+        boolean sinaisVitaisAlterados = respostaSimNao(dto, "sinais_vitais_alterados");
+        String sangramento = respostaSelecao(dto, "sangramento");
+        boolean doencaCronicaDescompensada = respostaSimNao(dto, "doenca_cronica_descompensada");
+        int intensidadeDor = respostaEscala(dto, "intensidade_dor");
+        boolean dificuldadeFicarEmPe = respostaSimNao(dto, "dificuldade_ficar_em_pe");
 
         int peso = 0;
 
-        if (sinaisAgudos != null && !sinaisAgudos.isEmpty()) {
-            for (String sinal : sinaisAgudos) {
-                switch (sinal) {
-                    case "sangramento_ativo" -> peso = Math.max(peso, 1);
-                    case "febre_alta_agora" -> peso = Math.max(peso, 1);
-                    case "suspeita_dengue_dor_abdominal" -> peso = Math.max(peso, 1);
-                }
-            }
+        // Pergunta 1 — sinais vitais alterados na aferição
+        if (sinaisVitaisAlterados) peso = Math.max(peso, 10);
+
+        // Pergunta 2 — sangramento ativo
+        switch (sangramento) {
+            case "grande" -> peso = Math.max(peso, 8);
+            case "pequeno" -> peso = Math.max(peso, 6);
         }
 
-        if (precisaCurativo) {
-            peso = Math.max(peso, 1);
+        // Pergunta 3 — doença crônica descompensada agora
+        if (doencaCronicaDescompensada) peso = Math.max(peso, 6);
+
+        // Pergunta 4 — intensidade da dor (0-10)
+        switch (intensidadeDor) {
+            case 8, 9, 10 -> peso = Math.max(peso, 8);
+            case 4, 5, 6, 7 -> peso = Math.max(peso, 6);
+            case 1, 2, 3 -> peso = Math.max(peso, 3);
         }
 
-        if (caracteristicasFerida != null && !caracteristicasFerida.isEmpty()) {
-            for (String caracteristica : caracteristicasFerida) {
-                switch (caracteristica) {
-                    case "secrecao_purulenta" -> peso = Math.max(peso, 1);
-                    case "odor_forte" -> peso = Math.max(peso, 1);
-                    case "calor_local" -> peso = Math.max(peso, 1);
-                    case "mordida_trauma_recente" -> peso = Math.max(peso, 1);
-                }
-            }
-        }
-
-        if (tipoProcedimento != null && !tipoProcedimento.isEmpty()) {
-            for (String tipo : tipoProcedimento) {
-                switch (tipo) {
-                    case "vacinacao_rotina" -> peso = Math.max(peso, 1);
-                    case "retirada_pontos" -> peso = Math.max(peso, 1);
-                    case "afericao_pressao_rotina" -> peso = Math.max(peso, 1);
-                    case "teste_rapido_assintomatico" -> peso = Math.max(peso, 1);
-                }
-            }
-        }
+        // Pergunta 5 — dificuldade para caminhar/ficar em pé sem ajuda
+        if (dificuldadeFicarEmPe) peso = Math.max(peso, 6);
 
         return calculaPeso(peso);
     }
 
     private NivelUrgencia calcularUrgenciaOdontologia(AnamneseDTO dto) {
-        List<String> dificuldades = respostaCheckbox(dto, "emergencias_trauma", "dificuldades");
-        // opções: engolir, abrir_boca, respirar
-        List<String> tipoProcedimentoOdonto = respostaCheckbox(dto, "procedimentos_eletivos", "tipo_procedimento_odonto");
-        // opções: limpeza_profilaxia, restauracao_sem_dor, avaliacao_rotina, substituicao_restauracao
-
-        boolean edemaRostoPescoco = respostaSimNao(dto, "emergencias_trauma", "edema_rosto_pescoco");
-        boolean traumaFacialSangramento = respostaSimNao(dto, "emergencias_trauma", "trauma_facial_sangramento");
-        boolean dorPulsatilImpede = respostaSimNao(dto, "dor_intensa", "dor_pulsatil_impede");
-
-        Integer idade = dto.getIdade();
+        boolean inchacoViaAerea = respostaSimNao(dto, "inchaco_via_aerea");
+        boolean sangramentoBoca = respostaSimNao(dto, "sangramento_boca");
+        int intensidadeDor = respostaEscala(dto, "intensidade_dor");
+        boolean traumaRecente = respostaSimNao(dto, "trauma_recente");
+        boolean problemaEletivo = respostaSimNao(dto, "problema_eletivo");
 
         int peso = 0;
 
-        if (edemaRostoPescoco) {
-            peso = Math.max(peso, 1);
+        // Pergunta 1 — inchaço no rosto/pescoço com dificuldade para engolir/respirar
+        if (inchacoViaAerea) peso = Math.max(peso, 10);
+
+        // Pergunta 2 — sangramento na boca que não para
+        if (sangramentoBoca) peso = Math.max(peso, 8);
+
+        // Pergunta 3 — intensidade da dor de dente (0-10)
+        switch (intensidadeDor) {
+            case 8, 9, 10 -> peso = Math.max(peso, 8);
+            case 4, 5, 6, 7 -> peso = Math.max(peso, 6);
+            case 1, 2, 3 -> peso = Math.max(peso, 3);
         }
 
-        if (dificuldades != null && !dificuldades.isEmpty()) {
-            for (String dificuldade : dificuldades) {
-                switch (dificuldade) {
-                    case "engolir" -> peso = Math.max(peso, 1);
-                    case "abrir_boca" -> peso = Math.max(peso, 1);
-                    case "respirar" -> peso = Math.max(peso, 1);
-                }
-            }
-        }
+        // Pergunta 4 — trauma/acidente recente
+        if (traumaRecente) peso = Math.max(peso, 6);
 
-        if (traumaFacialSangramento) {
-            peso = Math.max(peso, 1);
-        }
-
-        if (dorPulsatilImpede) {
-            peso = Math.max(peso, 1);
-        }
-
-        if (tipoProcedimentoOdonto != null && !tipoProcedimentoOdonto.isEmpty()) {
-            for (String tipo : tipoProcedimentoOdonto) {
-                switch (tipo) {
-                    case "limpeza_profilaxia" -> peso = Math.max(peso, 1);
-                    case "restauracao_sem_dor" -> peso = Math.max(peso, 1);
-                    case "avaliacao_rotina" -> peso = Math.max(peso, 1);
-                    case "substituicao_restauracao" -> peso = Math.max(peso, 1);
-                }
-            }
-        }
+        // Pergunta 5 — problema antigo, sem dor ou sangramento (eletivo)
+        if (problemaEletivo) peso = Math.max(peso, 1);
 
         return calculaPeso(peso);
     }
 
     private NivelUrgencia calcularUrgenciaPsicologia(AnamneseDTO dto) {
-        List<String> riscoAutolesao = respostaCheckbox(dto, "sinais_crise_grave", "risco_autolesao");
-        // opções: ideacao, planejamento, intencao
-        List<String> sinaisSofrimento = respostaCheckbox(dto, "sofrimento_psiquico_intenso", "sinais_sofrimento");
-        // opções: tristeza_incapacitante, perda_interesse, insonia_grave
-        List<String> situacaoAcompanhamento = respostaCheckbox(dto, "acompanhamento", "situacao_acompanhamento");
-        // opções: diagnostico_previo, medicacao_psiquiatrica, primeiro_acolhimento
-
-        boolean violenciaTraumaRecente = respostaSimNao(dto, "sofrimento_psiquico_intenso", "violencia_trauma_recente");
-        boolean criseAgudaAnsiedade = respostaSimNao(dto, "sinais_crise_grave", "crise_aguda_ansiedade");
-       
-
-        Integer idade = dto.getIdade();
+        boolean riscoAutolesao = respostaSimNao(dto, "risco_autolesao");
+        boolean agitacaoIntensa = respostaSimNao(dto, "agitacao_intensa");
+        boolean sofrimentoAgudo = respostaSimNao(dto, "sofrimento_agudo");
+        boolean agravamentoRecente = respostaSimNao(dto, "agravamento_recente");
+        boolean acompanhamentoRotina = respostaSimNao(dto, "acompanhamento_rotina");
 
         int peso = 0;
 
-        if (criseAgudaAnsiedade) {
-            peso = Math.max(peso, 1);
-        }
+        // Pergunta 1 — risco imediato a si ou a terceiros
+        if (riscoAutolesao) peso = Math.max(peso, 10);
 
-        if (riscoAutolesao != null && !riscoAutolesao.isEmpty()) {
-            for (String risco : riscoAutolesao) {
-                switch (risco) {
-                    case "ideacao" -> peso = Math.max(peso, 1);
-                    case "planejamento" -> peso = Math.max(peso, 1);
-                    case "intencao" -> peso = Math.max(peso, 1);
-                }
-            }
-        }
+        // Pergunta 2 — agitação/agressividade/fora de controle
+        if (agitacaoIntensa) peso = Math.max(peso, 8);
 
-        if (sinaisSofrimento != null && !sinaisSofrimento.isEmpty()) {
-            for (String sinal : sinaisSofrimento) {
-                switch (sinal) {
-                    case "tristeza_incapacitante" -> peso = Math.max(peso, 1);
-                    case "perda_interesse" -> peso = Math.max(peso, 1);
-                    case "insonia_grave" -> peso = Math.max(peso, 1);
-                }
-            }
-        }
+        // Pergunta 3 — sofrimento emocional agudo (crise de ansiedade/pânico)
+        if (sofrimentoAgudo) peso = Math.max(peso, 6);
 
-        if (violenciaTraumaRecente) {
-            peso = Math.max(peso, 1);
-        }
+        // Pergunta 4 — sintomas recentes ou em piora
+        if (agravamentoRecente) peso = Math.max(peso, 6);
 
-        if (situacaoAcompanhamento != null && !situacaoAcompanhamento.isEmpty()) {
-            for (String situacao : situacaoAcompanhamento) {
-                switch (situacao) {
-                    case "diagnostico_previo" -> peso = Math.max(peso, 1);
-                    case "medicacao_psiquiatrica" -> peso = Math.max(peso, 1);
-                    case "primeiro_acolhimento" -> peso = Math.max(peso, 1);
-                }
-            }
-        }
+        // Pergunta 5 — acompanhamento de rotina, sem crise ou risco atual
+        if (acompanhamentoRotina) peso = Math.max(peso, 1);
 
         return calculaPeso(peso);
     }
 
     private NivelUrgencia calcularUrgenciaNutricao(AnamneseDTO dto) {
-        List<String> sinaisDescompensacao = respostaCheckbox(dto, "descompensacao_metabolica", "sinais_descompensacao");
-        // opções: tonturas_frequentes, suor_frio, tremores, hipo_hiperglicemia
-        List<String> condicoesCronicasNutricao = respostaCheckbox(dto, "manejo_cronicos", "condicoes_cronicas_nutricao");
-        // opções: diabetes_nutricao, hipertensao_descontrolada, alteracao_renal
-        List<String> objetivoAcompanhamento = respostaCheckbox(dto, "acompanhamento_eletivo", "objetivo_acompanhamento");
-        // opções: reeducacao_alimentar, perda_peso_gradual, orientacao_habitos_saudaveis
-
-        boolean perdaPesoRapida = respostaSimNao(dto, "descompensacao_metabolica", "perda_peso_rapida");
-
-        Integer idade = dto.getIdade();
+        boolean glicemiaAlterada = respostaSimNao(dto, "glicemia_alterada");
+        boolean dificuldadeIngestao = respostaSimNao(dto, "dificuldade_ingestao");
+        boolean perdaPesoRapida = respostaSimNao(dto, "perda_peso_rapida");
+        boolean dificuldadeEngolir = respostaSimNao(dto, "dificuldade_engolir");
+        boolean acompanhamentoRotina = respostaSimNao(dto, "acompanhamento_rotina");
 
         int peso = 0;
 
-        if (sinaisDescompensacao != null && !sinaisDescompensacao.isEmpty()) {
-            for (String sinal : sinaisDescompensacao) {
-                switch (sinal) {
-                    case "tonturas_frequentes" -> peso = Math.max(peso, 1);
-                    case "suor_frio" -> peso = Math.max(peso, 1);
-                    case "tremores" -> peso = Math.max(peso, 1);
-                    case "hipo_hiperglicemia" -> peso = Math.max(peso, 1);
-                }
-            }
-        }
+        // Pergunta 1 — sintomas de glicemia muito alta/baixa
+        if (glicemiaAlterada) peso = Math.max(peso, 8);
 
-        if (perdaPesoRapida) {
-            peso = Math.max(peso, 1);
-        }
+        // Pergunta 2 — recusa/incapacidade de se alimentar ou beber água
+        if (dificuldadeIngestao) peso = Math.max(peso, 8);
 
-        if (condicoesCronicasNutricao != null && !condicoesCronicasNutricao.isEmpty()) {
-            for (String condicao : condicoesCronicasNutricao) {
-                switch (condicao) {
-                    case "diabetes_nutricao" -> peso = Math.max(peso, 1);
-                    case "hipertensao_descontrolada" -> peso = Math.max(peso, 1);
-                    case "alteracao_renal" -> peso = Math.max(peso, 1);
-                }
-            }
-        }
+        // Pergunta 3 — perda de peso rápida e não intencional
+        if (perdaPesoRapida) peso = Math.max(peso, 6);
 
-        if (objetivoAcompanhamento != null && !objetivoAcompanhamento.isEmpty()) {
-            for (String objetivo : objetivoAcompanhamento) {
-                switch (objetivo) {
-                    case "reeducacao_alimentar" -> peso = Math.max(peso, 1);
-                    case "perda_peso_gradual" -> peso = Math.max(peso, 1);
-                    case "orientacao_habitos_saudaveis" -> peso = Math.max(peso, 1);
-                }
-            }
-        }
+        // Pergunta 4 — dificuldade ou dor para engolir alimentos
+        if (dificuldadeEngolir) peso = Math.max(peso, 6);
+
+        // Pergunta 5 — acompanhamento de rotina, sem sintomas agudos
+        if (acompanhamentoRotina) peso = Math.max(peso, 1);
 
         return calculaPeso(peso);
     }
 
+    // Peso -> cor, seguindo a tabela do Protocolo de Manchester real:
+    // Vermelho=10, Laranja=8, Amarelo=6, Verde=3, Azul=1 (ou nenhum sinal).
     private NivelUrgencia calculaPeso(int peso) {
-        switch (peso) {
-            case 0,1,2 -> {
-                return NivelUrgencia.VERDE;
-            }
-            case 3,4 -> {
-                return NivelUrgencia.AZUL;
-            }
-            case 5,6 -> {
-                return NivelUrgencia.AMARELO;
-            }
-            case 7,8,9 -> {
-                return NivelUrgencia.LARANJA;
-            }
-            case 10 -> {
-                return NivelUrgencia.VERMELHO;
-            }
-        }
-
-        return NivelUrgencia.VERDE;
+        if (peso >= 10) return NivelUrgencia.VERMELHO;
+        if (peso >= 8) return NivelUrgencia.LARANJA;
+        if (peso >= 6) return NivelUrgencia.AMARELO;
+        if (peso >= 3) return NivelUrgencia.VERDE;
+        return NivelUrgencia.AZUL;
     }
 
-    private Object valorResposta(AnamneseDTO dto, String grupoId, String perguntaId) {
-        Map<String, Object> grupo = dto.getRespostas() != null ? dto.getRespostas().get(grupoId) : null;
-        return grupo != null ? grupo.get(perguntaId) : null;
+    private Object valorResposta(AnamneseDTO dto, String perguntaId) {
+        Map<String, Object> respostas = dto.getRespostas();
+        return respostas != null ? respostas.get(perguntaId) : null;
     }
 
-    private boolean respostaSimNao(AnamneseDTO dto, String grupoId, String perguntaId) {
-        return Boolean.TRUE.equals(valorResposta(dto, grupoId, perguntaId));
+    private boolean respostaSimNao(AnamneseDTO dto, String perguntaId) {
+        return Boolean.TRUE.equals(valorResposta(dto, perguntaId));
     }
 
-    private int respostaEscala(AnamneseDTO dto, String grupoId, String perguntaId) {
-        Object valor = valorResposta(dto, grupoId, perguntaId);
+    private int respostaEscala(AnamneseDTO dto, String perguntaId) {
+        Object valor = valorResposta(dto, perguntaId);
         return valor instanceof Number n ? n.intValue() : 0;
     }
 
-    @SuppressWarnings("unchecked")
-    private List<String> respostaCheckbox(AnamneseDTO dto, String grupoId, String perguntaId) {
-        Object valor = valorResposta(dto, grupoId, perguntaId);
-        return valor instanceof List<?> lista ? (List<String>) lista : List.of();
+    private double respostaNumero(AnamneseDTO dto, String perguntaId) {
+        Object valor = valorResposta(dto, perguntaId);
+        return valor instanceof Number n ? n.doubleValue() : 0;
+    }
+
+    private String respostaSelecao(AnamneseDTO dto, String perguntaId) {
+        Object valor = valorResposta(dto, perguntaId);
+        return valor instanceof String s ? s : "";
     }
 
     @Transactional(readOnly = true)

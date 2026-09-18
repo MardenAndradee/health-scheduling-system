@@ -3,9 +3,28 @@ import { Especialidade } from './tipos'
 
 /**
  * Fonte única das especialidades e das perguntas de anamnese por tipo de
- * atendimento. O texto exato (e a lista de perguntas em si) é um rascunho do
- * posto de saúde e deve mudar com o tempo — editar aqui nunca deve exigir
- * mexer em componente (ver PerguntaField.tsx).
+ * atendimento — perguntas definitivas, baseadas na pesquisa sobre o
+ * Protocolo de Manchester e nas respostas do formulário enviado a médicos
+ * ("Pesquisa Médica TCC.docx", seção "Perguntas definitivas e peso").
+ *
+ * O peso de cada resposta NÃO vive aqui — o cálculo de nível de urgência é
+ * feito só pelo backend (AnamneseService.defineUrgencia), a partir do
+ * especialidadeId + idade + respostas enviados. Os ids de cada pergunta
+ * (e das opções de "selecao") precisam bater exatamente com os literais
+ * usados lá — ver backend/.../service/AnamneseService.java.
+ *
+ * Duas perguntas do documento original davam duas respostas possíveis pra
+ * um "Sim" sem um critério objetivo de corte entre elas (ex.: "dor no
+ * peito ou falta de ar" valendo peso 10 OU 8) — nesses casos, usei sempre o
+ * peso mais alto, seguindo o princípio de segurança do próprio documento
+ * ("na dúvida, considera-se o discriminador positivo... elevando a
+ * prioridade em vez de reduzi-la"). Duas outras perguntas foram reescritas
+ * pra manter a convenção de que "Sim" sempre indica o sinal de alerta
+ * (nunca o oposto), preservando o critério clínico original:
+ * "Você consegue caminhar e se manter em pé sem ajuda?" (peso valia para
+ * "não consegue") virou "Você tem dificuldade para caminhar ou se manter
+ * em pé sem ajuda?"; mesma ideia para a pergunta de ingestão de
+ * água/alimentos da Nutrição.
  */
 export const especialidades: Especialidade[] = [
   {
@@ -13,82 +32,18 @@ export const especialidades: Especialidade[] = [
     nome: 'Clínico Geral',
     descricaoCurta: 'Dores agudas, febre, acompanhamento de crônicos.',
     icone: Stethoscope,
-    grupos: [
+    perguntas: [
+      { id: 'dor_peito_falta_ar', tipo: 'sim_nao', texto: 'Você está sentindo dor no peito ou falta de ar neste momento?' },
+      { id: 'alteracao_consciencia', tipo: 'sim_nao', texto: 'Você desmaiou, está confuso ou com dificuldade de se manter acordado?' },
+      { id: 'intensidade_dor', tipo: 'escala_0_10', texto: 'Em uma escala de 0 a 10, qual a intensidade da sua dor?' },
+      { id: 'temperatura', tipo: 'numero', texto: 'Você está com febre? Se sim, qual a temperatura medida?', unidade: '°C', placeholder: 'Ex: 36.5' },
       {
-        id: 'sintomas_alarme',
-        titulo: 'Sintomas de Alarme',
-        pesoMin: 9,
-        pesoMax: 10,
-        perguntas: [
-          {
-            id: 'sinais_alarme',
-            tipo: 'checkbox_multiplo',
-            texto: 'Apresenta algum destes sinais agora?',
-            opcoes: [
-              { id: 'dor_peito', label: 'Dor no peito' },
-              { id: 'falta_ar_severa', label: 'Falta de ar severa' },
-              { id: 'paralisia_formigamento', label: 'Paralisia ou formigamento repentino em um lado do corpo' },
-              { id: 'perda_consciencia', label: 'Perda de consciência' },
-            ],
-          },
-        ],
-      },
-      {
-        id: 'intensidade_evolucao',
-        titulo: 'Intensidade e Evolução',
-        pesoMin: 6,
-        pesoMax: 8,
-        perguntas: [
-          { id: 'intensidade_dor', tipo: 'escala_0_10', texto: 'Qual a intensidade da dor (escala de 0 a 10)?' },
-          { id: 'dor_subita', tipo: 'sim_nao', texto: 'A dor começou de forma súbita?' },
-          {
-            id: 'febre_vomitos',
-            tipo: 'checkbox_multiplo',
-            texto: 'Apresenta algum destes sintomas?',
-            opcoes: [
-              { id: 'febre_persistente', label: 'Febre persistente (acima de 38,5°C)' },
-              { id: 'vomitos_frequentes', label: 'Vômitos frequentes' },
-            ],
-          },
-        ],
-      },
-      {
-        id: 'sinais_inflamatorios_gastro',
-        titulo: 'Sinais Inflamatórios / Gastro',
-        pesoMin: 4,
-        pesoMax: 5,
-        perguntas: [
-          {
-            id: 'sinais_gastro',
-            tipo: 'checkbox_multiplo',
-            texto: 'Apresenta algum destes sinais?',
-            opcoes: [
-              { id: 'diarreia', label: 'Diarreia' },
-              { id: 'dor_abdominal_moderada', label: 'Dor abdominal moderada' },
-              { id: 'tontura_ao_levantar', label: 'Tontura ao se levantar' },
-              { id: 'sintomas_gripais_3dias', label: 'Sintomas gripais há mais de 3 dias' },
-            ],
-          },
-        ],
-      },
-      {
-        id: 'historico_cronicos',
-        titulo: 'Histórico e Crônicos',
-        pesoMin: 3,
-        pesoMax: 6,
-        perguntas: [
-          {
-            id: 'condicoes_cronicas',
-            tipo: 'checkbox_multiplo',
-            texto: 'Possui alguma destas condições?',
-            opcoes: [
-              { id: 'hipertensao', label: 'Hipertensão' },
-              { id: 'diabetes', label: 'Diabetes' },
-              { id: 'insuficiencia_cardiaca', label: 'Insuficiência cardíaca' },
-              { id: 'insuficiencia_renal', label: 'Insuficiência renal' },
-            ],
-          },
-          { id: 'medicacao_continua', tipo: 'sim_nao', texto: 'Faz uso de medicação contínua?' },
+        id: 'tempo_sintomas',
+        tipo: 'selecao',
+        texto: 'Há quanto tempo começaram os sintomas?',
+        opcoes: [
+          { id: 'antigo_estavel', label: 'Já faz vários dias, estável' },
+          { id: 'recente', label: 'Começou hoje/agora' },
         ],
       },
     ],
@@ -98,252 +53,60 @@ export const especialidades: Especialidade[] = [
     nome: 'Enfermagem',
     descricaoCurta: 'Triagem inicial, vacinas, curativos, testes rápidos.',
     icone: Syringe,
-    grupos: [
+    perguntas: [
+      { id: 'sinais_vitais_alterados', tipo: 'sim_nao', texto: 'Na aferição, seus sinais vitais (pressão, pulso, saturação) estão alterados?' },
       {
-        id: 'urgencias_sinais_agudos',
-        titulo: 'Urgências e Sinais Agudos',
-        pesoMin: 8,
-        pesoMax: 10,
-        perguntas: [
-          {
-            id: 'sinais_agudos',
-            tipo: 'checkbox_multiplo',
-            texto: 'Apresenta algum destes sinais agora?',
-            opcoes: [
-              { id: 'sangramento_ativo', label: 'Sangramento ativo que não para' },
-              { id: 'febre_alta_agora', label: 'Febre alta aferida no momento' },
-              { id: 'suspeita_dengue_dor_abdominal', label: 'Suspeita de dengue com dor abdominal intensa' },
-            ],
-          },
+        id: 'sangramento',
+        tipo: 'selecao',
+        texto: 'Há algum sangramento ativo?',
+        opcoes: [
+          { id: 'nao', label: 'Não' },
+          { id: 'pequeno', label: 'Sim, sangramento pequeno' },
+          { id: 'grande', label: 'Sim, sangramento grande, não para com compressão' },
         ],
       },
-      {
-        id: 'avaliacao_lesoes',
-        titulo: 'Avaliação de Lesões',
-        pesoMin: 4,
-        pesoMax: 7,
-        perguntas: [
-          { id: 'precisa_curativo', tipo: 'sim_nao', texto: 'Precisa de curativo?' },
-          {
-            id: 'caracteristicas_ferida',
-            tipo: 'checkbox_multiplo',
-            texto: 'A ferida apresenta algo disso?',
-            opcoes: [
-              { id: 'secrecao_purulenta', label: 'Secreção purulenta' },
-              { id: 'odor_forte', label: 'Odor forte' },
-              { id: 'calor_local', label: 'Calor local' },
-              { id: 'mordida_trauma_recente', label: 'Foi causada por mordida ou trauma recente' },
-            ],
-          },
-        ],
-      },
-      {
-        id: 'procedimentos_testes',
-        titulo: 'Procedimentos e Testes',
-        pesoMin: 1,
-        pesoMax: 3,
-        perguntas: [
-          {
-            id: 'tipo_procedimento',
-            tipo: 'checkbox_multiplo',
-            texto: 'O atendimento é para:',
-            opcoes: [
-              { id: 'vacinacao_rotina', label: 'Vacinação de rotina' },
-              { id: 'retirada_pontos', label: 'Retirada de pontos' },
-              { id: 'afericao_pressao_rotina', label: 'Aferição de pressão de rotina' },
-              { id: 'teste_rapido_assintomatico', label: 'Teste rápido, sem sintomas' },
-            ],
-          },
-        ],
-      },
+      { id: 'doenca_cronica_descompensada', tipo: 'sim_nao', texto: 'Você tem alguma doença crônica (diabetes, hipertensão) descompensada agora?' },
+      { id: 'intensidade_dor', tipo: 'escala_0_10', texto: 'Qual a intensidade da sua dor, de 0 a 10?' },
+      { id: 'dificuldade_ficar_em_pe', tipo: 'sim_nao', texto: 'Você tem dificuldade para caminhar ou se manter em pé sem ajuda?' },
     ],
   },
   {
     id: 'odontologia',
-    nome: 'Odontologia',
+    nome: 'Dentista',
     descricaoCurta: 'Dores de dente, profilaxia, extrações.',
     icone: Smile,
-    grupos: [
-      {
-        id: 'emergencias_trauma',
-        titulo: 'Emergências e Trauma',
-        pesoMin: 8,
-        pesoMax: 10,
-        perguntas: [
-          { id: 'edema_rosto_pescoco', tipo: 'sim_nao', texto: 'Apresenta inchaço (edema) visível no rosto ou pescoço?' },
-          {
-            id: 'dificuldades',
-            tipo: 'checkbox_multiplo',
-            texto: 'Tem dificuldade para:',
-            opcoes: [
-              { id: 'engolir', label: 'Engolir' },
-              { id: 'abrir_boca', label: 'Abrir a boca' },
-              { id: 'respirar', label: 'Respirar' },
-            ],
-          },
-          { id: 'trauma_facial_sangramento', tipo: 'sim_nao', texto: 'Houve trauma facial com sangramento contínuo?' },
-        ],
-      },
-      {
-        id: 'dor_intensa',
-        titulo: 'Dor Intensa',
-        pesoMin: 6,
-        pesoMax: 7,
-        perguntas: [
-          {
-            id: 'dor_pulsatil_impede',
-            tipo: 'sim_nao',
-            texto: 'A dor no dente é pulsátil, contínua e impede você de dormir ou mastigar, mesmo com medicação?',
-          },
-        ],
-      },
-      {
-        id: 'procedimentos_eletivos',
-        titulo: 'Procedimentos Eletivos',
-        pesoMin: 1,
-        pesoMax: 3,
-        perguntas: [
-          {
-            id: 'tipo_procedimento_odonto',
-            tipo: 'checkbox_multiplo',
-            texto: 'O atendimento é para:',
-            opcoes: [
-              { id: 'limpeza_profilaxia', label: 'Limpeza (profilaxia)' },
-              { id: 'restauracao_sem_dor', label: 'Restauração sem dor' },
-              { id: 'avaliacao_rotina', label: 'Avaliação de rotina' },
-              { id: 'substituicao_restauracao', label: 'Substituição de restauração' },
-            ],
-          },
-        ],
-      },
+    perguntas: [
+      { id: 'inchaco_via_aerea', tipo: 'sim_nao', texto: 'Você tem inchaço no rosto ou pescoço com dificuldade para engolir ou respirar?' },
+      { id: 'sangramento_boca', tipo: 'sim_nao', texto: 'Há sangramento na boca que não para (após extração ou trauma)?' },
+      { id: 'intensidade_dor', tipo: 'escala_0_10', texto: 'Qual a intensidade da sua dor de dente, de 0 a 10?' },
+      { id: 'trauma_recente', tipo: 'sim_nao', texto: 'O problema foi causado por trauma ou acidente recente (dente quebrado ou avulsionado)?' },
+      { id: 'problema_eletivo', tipo: 'sim_nao', texto: 'É um problema antigo, sem dor ou sangramento (estético ou revisão)?' },
     ],
   },
   {
     id: 'psicologia',
-    nome: 'Psicologia',
+    nome: 'Psicólogo',
     descricaoCurta: 'Ansiedade, depressão, acolhimento.',
     icone: Brain,
-    grupos: [
-      {
-        id: 'sinais_crise_grave',
-        titulo: 'Sinais de Crise Grave',
-        pesoMin: 9,
-        pesoMax: 10,
-        perguntas: [
-          { id: 'crise_aguda_ansiedade', tipo: 'sim_nao', texto: 'Está em crise aguda de ansiedade/pânico no momento?' },
-          {
-            id: 'risco_autolesao',
-            tipo: 'checkbox_multiplo',
-            texto: 'Apresenta algo disso, recentemente?',
-            opcoes: [
-              { id: 'ideacao', label: 'Ideação de autoextermínio ou autolesão' },
-              { id: 'planejamento', label: 'Planejamento' },
-              { id: 'intencao', label: 'Intenção' },
-            ],
-          },
-        ],
-      },
-      {
-        id: 'sofrimento_psiquico_intenso',
-        titulo: 'Sofrimento Psíquico Intenso',
-        pesoMin: 6,
-        pesoMax: 8,
-        perguntas: [
-          {
-            id: 'sinais_sofrimento',
-            tipo: 'checkbox_multiplo',
-            texto: 'Sente algo disso há semanas?',
-            opcoes: [
-              { id: 'tristeza_incapacitante', label: 'Tristeza profunda incapacitante' },
-              { id: 'perda_interesse', label: 'Perda total de interesse nas atividades diárias' },
-              { id: 'insonia_grave', label: 'Insônia grave' },
-            ],
-          },
-          { id: 'violencia_trauma_recente', tipo: 'sim_nao', texto: 'Sofreu violência ou trauma recente?' },
-        ],
-      },
-      {
-        id: 'acompanhamento',
-        titulo: 'Acompanhamento',
-        pesoMin: 1,
-        pesoMax: 4,
-        perguntas: [
-          {
-            id: 'situacao_acompanhamento',
-            tipo: 'checkbox_multiplo',
-            texto: 'Alguma dessas situações se aplica?',
-            opcoes: [
-              { id: 'diagnostico_previo', label: 'Já possui diagnóstico prévio' },
-              { id: 'medicacao_psiquiatrica', label: 'Faz uso de medicação psiquiátrica' },
-              { id: 'primeiro_acolhimento', label: 'Busca primeiro acolhimento' },
-            ],
-          },
-        ],
-      },
+    perguntas: [
+      { id: 'risco_autolesao', tipo: 'sim_nao', texto: 'Há risco imediato de a pessoa se machucar ou de machucar outras pessoas agora?' },
+      { id: 'agitacao_intensa', tipo: 'sim_nao', texto: 'A pessoa está muito agitada, agressiva ou aparentemente fora de controle?' },
+      { id: 'sofrimento_agudo', tipo: 'sim_nao', texto: 'Há sofrimento emocional intenso e agudo neste momento (crise de ansiedade ou pânico)?' },
+      { id: 'agravamento_recente', tipo: 'sim_nao', texto: 'Os sintomas surgiram ou pioraram recentemente, ou após um evento específico?' },
+      { id: 'acompanhamento_rotina', tipo: 'sim_nao', texto: 'É um acompanhamento de rotina, sem crise ou risco atual?' },
     ],
   },
   {
     id: 'nutricao',
-    nome: 'Nutrição',
+    nome: 'Nutricionista',
     descricaoCurta: 'Controle de diabetes, hipertensão, obesidade.',
     icone: Apple,
-    grupos: [
-      {
-        id: 'descompensacao_metabolica',
-        titulo: 'Descompensação Metabólica',
-        pesoMin: 7,
-        pesoMax: 9,
-        perguntas: [
-          {
-            id: 'sinais_descompensacao',
-            tipo: 'checkbox_multiplo',
-            texto: 'Apresenta algum destes sinais?',
-            opcoes: [
-              { id: 'tonturas_frequentes', label: 'Tonturas frequentes' },
-              { id: 'suor_frio', label: 'Suor frio' },
-              { id: 'tremores', label: 'Tremores' },
-              { id: 'hipo_hiperglicemia', label: 'Episódios de hipoglicemia/hiperglicemia' },
-            ],
-          },
-          { id: 'perda_peso_rapida', tipo: 'sim_nao', texto: 'Teve perda de peso rápida e involuntária?' },
-        ],
-      },
-      {
-        id: 'manejo_cronicos',
-        titulo: 'Manejo de Crônicos',
-        pesoMin: 4,
-        pesoMax: 6,
-        perguntas: [
-          {
-            id: 'condicoes_cronicas_nutricao',
-            tipo: 'checkbox_multiplo',
-            texto: 'Possui diagnóstico de:',
-            opcoes: [
-              { id: 'diabetes_nutricao', label: 'Diabetes' },
-              { id: 'hipertensao_descontrolada', label: 'Hipertensão descontrolada' },
-              { id: 'alteracao_renal', label: 'Alteração renal com exames alterados recentemente' },
-            ],
-          },
-        ],
-      },
-      {
-        id: 'acompanhamento_eletivo',
-        titulo: 'Acompanhamento Eletivo',
-        pesoMin: 1,
-        pesoMax: 3,
-        perguntas: [
-          {
-            id: 'objetivo_acompanhamento',
-            tipo: 'checkbox_multiplo',
-            texto: 'Busca:',
-            opcoes: [
-              { id: 'reeducacao_alimentar', label: 'Reeducação alimentar' },
-              { id: 'perda_peso_gradual', label: 'Perda de peso gradual' },
-              { id: 'orientacao_habitos_saudaveis', label: 'Orientação para hábitos saudáveis' },
-            ],
-          },
-        ],
-      },
+    perguntas: [
+      { id: 'glicemia_alterada', tipo: 'sim_nao', texto: 'Você é diabético e está com sintomas de glicemia muito alta ou muito baixa agora?' },
+      { id: 'dificuldade_ingestao', tipo: 'sim_nao', texto: 'Você tem recusa ou incapacidade de se alimentar ou beber água?' },
+      { id: 'perda_peso_rapida', tipo: 'sim_nao', texto: 'Houve perda de peso rápida e não intencional recentemente?' },
+      { id: 'dificuldade_engolir', tipo: 'sim_nao', texto: 'Você tem dificuldade ou dor para engolir os alimentos?' },
+      { id: 'acompanhamento_rotina', tipo: 'sim_nao', texto: 'É um acompanhamento de rotina (reeducação alimentar, plano alimentar), sem sintomas agudos?' },
     ],
   },
 ]

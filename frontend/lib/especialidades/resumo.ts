@@ -12,16 +12,14 @@ export function formatarValorPergunta(pergunta: Pergunta, valor: RespostaValor |
       return valor === true ? 'Sim' : 'Não'
     case 'escala_0_10':
       return typeof valor === 'number' ? String(valor) : '0'
-    case 'checkbox_multiplo': {
-      const selecionados = Array.isArray(valor) ? valor : []
-      if (selecionados.length === 0) return 'Nenhum'
-      return pergunta.opcoes
-        .filter(o => selecionados.includes(o.id))
-        .map(o => o.label)
-        .join(', ')
+    case 'numero':
+      return typeof valor === 'number' && valor > 0
+        ? `${valor}${pergunta.unidade ? ` ${pergunta.unidade}` : ''}`
+        : 'Não informado'
+    case 'selecao': {
+      const opcao = pergunta.opcoes.find(o => o.id === valor)
+      return opcao?.label ?? pergunta.opcoes[0]?.label ?? '—'
     }
-    case 'texto_livre':
-      return typeof valor === 'string' && valor.trim() ? valor : '—'
   }
 }
 
@@ -48,11 +46,12 @@ function linhaIdentificacao(identificacao: IdentificacaoForm): string[] {
 }
 
 /**
- * Monta o texto de `observacoes` enviado para o backend — que não tem colunas
- * próprias para identificação/especialidade/respostas, então tudo isso vira
- * texto legível, seguindo o mesmo princípio que `formatarResumoTriagem` já
- * usava. Genérico sobre a config: os rótulos vêm de `Pergunta.texto` e
- * `opcoes[].label`, então editar `config.ts` nunca exige mexer aqui.
+ * Monta o texto de `observacoes` enviado para o backend — que não tem
+ * colunas próprias para identificação/especialidade/respostas, então tudo
+ * isso vira texto legível, seguindo o mesmo princípio que
+ * `formatarResumoTriagem` já usava. O nível de urgência calculado pelo
+ * backend não entra aqui (o backend não devolve o "porquê" do cálculo,
+ * só o resultado em `Anamnese.nivelUrgencia`, já visível na fila).
  */
 export function formatarResumoAnamnese(
   identificacao: IdentificacaoForm,
@@ -65,12 +64,8 @@ export function formatarResumoAnamnese(
   blocos.push(linhaIdentificacao(identificacao).join('\n'))
 
   const linhasAnamnese = [`Anamnese — ${especialidade.nome}`]
-  for (const grupo of especialidade.grupos) {
-    linhasAnamnese.push(`${grupo.titulo} (peso ${grupo.pesoMin}-${grupo.pesoMax})`)
-    for (const pergunta of grupo.perguntas) {
-      const valor = respostas[grupo.id]?.[pergunta.id]
-      linhasAnamnese.push(` - ${pergunta.texto} ${formatarValorPergunta(pergunta, valor)}`)
-    }
+  for (const pergunta of especialidade.perguntas) {
+    linhasAnamnese.push(` - ${pergunta.texto} ${formatarValorPergunta(pergunta, respostas[pergunta.id])}`)
   }
   blocos.push(linhasAnamnese.join('\n'))
 

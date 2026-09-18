@@ -155,15 +155,15 @@ Define o papel do usuário e, por consequência, sua *authority* no Spring Secur
 
 ### `NivelUrgencia`
 
-Escala de classificação de risco, do menos ao mais grave (inspirada no Protocolo de Manchester):
+Escala de classificação de risco, do mais ao menos grave (Protocolo de Manchester real — ver "Pesquisa Médica TCC.docx"):
 
 | Valor | Significado |
 |---|---|
-| `VERDE` | Não urgente |
-| `AZUL` | Pouco urgente |
-| `AMARELO` | Urgente |
-| `LARANJA` | Muito urgente |
 | `VERMELHO` | Emergência |
+| `LARANJA` | Muito urgente |
+| `AMARELO` | Urgente |
+| `VERDE` | Pouco urgente |
+| `AZUL` | Não urgente |
 
 ### `StatusAgendamento`
 
@@ -180,12 +180,14 @@ O sistema não impõe transições de estado no código atual (o status pode ser
 A ordenação da fila de triagem por gravidade **não é um campo persistido** — é calculada em tempo de consulta pelo `AnamneseRepository`:
 
 ```sql
-SELECT a FROM Anamnese a ORDER BY CASE a.nivelUrgencia
+SELECT a FROM Anamnese a
+WHERE NOT EXISTS (SELECT 1 FROM Agendamento ag WHERE ag.anamnese = a)
+ORDER BY CASE a.nivelUrgencia
     WHEN 'VERMELHO' THEN 1
     WHEN 'LARANJA'  THEN 2
     WHEN 'AMARELO'  THEN 3
-    WHEN 'AZUL'     THEN 4
-    WHEN 'VERDE'    THEN 5
+    WHEN 'VERDE'    THEN 4
+    WHEN 'AZUL'     THEN 5
 END, a.dataRegistro ASC
 ```
 
